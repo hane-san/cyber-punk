@@ -93,7 +93,7 @@ const IAI = {
     post.uniforms.uSlash.value.set(ang, ((cx - 0.5) * asp) * -Math.sin(ang) + (cy - 0.5) * Math.cos(ang), 0);
     this.split = 0; this.slashK = 0;
     stamp(this.lastResult, perfect, this.combo); maku(perfect);
-    sfx.strike(perfect); sfx.tsuke(perfect); buzz(perfect ? [30, 40, 120] : [25, 30, 80]);
+    sfx.zubaba(perfect); sfx.tsuke(perfect); buzz(perfect ? [30, 40, 120] : [25, 30, 80]);
     fxSparks(tmp2.copy(e.pos).setY(e.pos.y + 1.8), 0, 0, 30);
   },
   // the blast behind you

@@ -39,8 +39,9 @@ function updateCamera(dt) {
     const C = IAI.mieC;
     // full framing while the frame is held (the mie), a gentler pull on the way back so the ride keeps flowing
     const mk = IAI.freeze > 0 || IAI.phase === 'hold' ? 1 : 0.6;
-    _mie.set(C.x + Math.sin(IAI.mieYaw) * IAI.mieDist * 0.8, C.y + 0.8, C.z + Math.cos(IAI.mieYaw) * IAI.mieDist * 0.8);
-    camPos.lerp(_mie, mw * mk); _look.copy(C); _look.y += 1.6; lookSm.lerp(_look, mw * mk);
+    // the side view is taken level, at chest height, so the horizon stays flat
+    _mie.set(C.x + Math.sin(IAI.mieYaw) * IAI.mieDist * 0.8, C.y + 1.5, C.z + Math.cos(IAI.mieYaw) * IAI.mieDist * 0.8);
+    camPos.lerp(_mie, mw * mk); _look.copy(C); _look.y += 1.5; lookSm.lerp(_look, mw * mk);
   }
   camera.position.copy(camPos);
   const rumble = sf * sf * 0.09 + shake;
@@ -48,7 +49,8 @@ function updateCamera(dt) {
   camera.position.y += suspY * 0.18;
   shake = Math.max(0, shake - dt * 1.5);
   camera.lookAt(lookSm);
-  camera.rotateZ(clamp(P.yawRate, -2, 2) * 0.05 * sf * (1 - mw * 0.5));
+  // a gentle roll into turns only; none in the stance or the mie, where the auto-steer would tip the horizon
+  camera.rotateZ(clamp(clamp(P.yawRate, -2, 2) * 0.022 * sf, -0.045, 0.045) * (1 - mw) * (1 - kamaeK));
   dashPunch = Math.max(0, dashPunch - dt * 2.2);
   const fov = (portrait ? 70 : 55) + sf * 14 * S.fovKick + dashPunch * 4 - kamaeK * 4 + mw * 2;
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = lerp(camera.fov, fov, 1 - Math.exp(-6 * dt)); applyLens(); }

@@ -163,6 +163,17 @@ More for the feel:
 - **Near misses:** skimming within 2.6 m of a pillar or a wall at over 130 km/h gives a whoosh, a little flow and a punch, once per obstacle every 2.5 s.
 - **Re-acceleration:** a rush of wind when the board flies on after the cut.
 
+## Level camera, zubaba, and an asagi lock-on
+
+- **Camera roll** in turns is about half what it was (0.022 × yaw rate × speed, capped at 0.045 rad). It is zero in the stance and in the mie, so the auto-steer no longer tips the horizon.
+- **The mie** is taken level, from chest height.
+- **The cut sound** is a heavy "zubaba".
+  - Zu: a falling tear of air.
+  - Ba, ba: two hits (three for 一閃), each a low-passed body, a thump falling from 150 Hz and an edge.
+  - All of it goes through a soft-clip drive stage (tanh), with a sub-bass tail and a faint ring of steel.
+  - The tsuke clappers follow.
+- **The lock-on mark** is asagi: a brush-drawn double ring with four ticks, like a sight. The wind-up ring is asagi too, and turns gold only inside the window. The ground figures' markings never share a colour with the vermilion and indigo rounds.
+
 ## Known limitations
 
 - Start-up builds the district field and the global towers for the whole 72 × 62 km world: about 3 s in headless Chromium on a desktop CPU.

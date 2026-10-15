@@ -255,9 +255,9 @@ function makeIjin(R) {
   NB.tri([0, 2.2, -0.05], [0.25, 3.4, 0], [-0.08, 2.2, 0.05], 0xf4f6ff, 0, -999, null);
   arm.add(NB.mesh(ukiyoDS)); arm.rotation.z = 0.35;
   // the tell: a vermilion brush ring that closes on the figure, and the stance's sumi mark around it
-  const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: FX.ring, transparent: true, depthWrite: false, depthTest: false }));
+  const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: FX.ringA, transparent: true, depthWrite: false, depthTest: false }));
   ring.visible = false; ring.renderOrder = 5; g.add(ring); ring.position.y = 2.2;
-  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: FX.ens, transparent: true, depthWrite: false, depthTest: false, opacity: 0.85 }));
+  const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: FX.lock, transparent: true, depthWrite: false, depthTest: false, opacity: 0.95 }));
   mark.visible = false; mark.renderOrder = 4; g.add(mark); mark.position.y = 2.2;
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.6, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: COL.sumi, transparent: true, opacity: 0.35, depthWrite: false }));
   shadow.position.y = 0.08; g.add(shadow);
@@ -313,7 +313,7 @@ function updateIjins(dt) {
     }
     // the tell ring closes over the wind-up; inside the window it turns to gold
     e.ring.visible = e.state === 'windup';
-    if (e.ring.visible) { const u = e.wind / WINDUP, s = 2.2 + 9 * u; e.ring.scale.set(s, s, 1); const inW = e.wind <= WINDOW; e.ring.material.map = inW ? FX.ringG : FX.ring; e.ring.material.rotation += dt * 3; }
+    if (e.ring.visible) { const u = e.wind / WINDUP, s = 2.2 + 9 * u; e.ring.scale.set(s, s, 1); const inW = e.wind <= WINDOW; e.ring.material.map = inW ? FX.ringG : FX.ringA; e.ring.material.rotation += dt * 3; }
     e.mark.visible = e.locked; if (e.locked) { const s = 6 + Math.sin(e.t * 6) * 0.4; e.mark.scale.set(s, s, 1); e.mark.material.rotation -= dt * 1.5; }
     if (d > 800 || (d > 320 && (dx * vx + dz * vz) > 0)) e.alive = false, e.deadT = 9;
   }

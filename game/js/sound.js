@@ -3,7 +3,7 @@
 // an assault arrives, the kakegoe call (ヨォー) when a figure winds up, the tsuzumi (ポン) that marks the instant to cut,
 // hyoshigi clappers at the start, and a taiko under the cut itself.
 const sfx = (() => {
-  let ac = null, master, hum, humG, humF, wind, windG, windF, lp, droneG, droneO;
+  let ac = null, drive = null, master, hum, humG, humF, wind, windG, windF, lp, droneG, droneO;
   let on = store.get('ukiyo.sound', true);
   function init() {
     if (ac) return;
@@ -20,6 +20,8 @@ const sfx = (() => {
     // the held breath of the stance: a low breathy shakuhachi-like tone
     droneO = ac.createOscillator(); droneO.type = 'sine'; droneO.frequency.value = 146.8; droneG = ac.createGain(); droneG.gain.value = 0; droneO.connect(droneG); droneG.connect(master); droneO.start();
     sfx.noise = nb;
+    // a soft-clipping stage for the heavy cuts: it thickens the low end and makes a hit feel solid
+    drive = ac.createWaveShaper(); const cv = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; cv[i] = Math.tanh(x * 3.2); } drive.curve = cv; drive.connect(lp);
   }
   const now = () => ac.currentTime;
   function env(g, t0, a, peak, dcy) { g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak, t0 + a); g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + dcy); }
@@ -28,10 +30,10 @@ const sfx = (() => {
     if (glide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq * glide), t0 + a + dcy);
     env(g, t0, a, peak, dcy); o.connect(g); g.connect(dest); o.start(t0); o.stop(t0 + a + dcy + 0.05);
   }
-  function noise(peak, a, dcy, ftype, f, q = 1, delay = 0, fEnd = 0) {
+  function noise(peak, a, dcy, ftype, f, q = 1, delay = 0, fEnd = 0, dest = lp) {
     if (!ac) return; const t0 = now() + delay, s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
     s.buffer = sfx.noise; fl.type = ftype; fl.frequency.setValueAtTime(f, t0); if (fEnd) fl.frequency.exponentialRampToValueAtTime(fEnd, t0 + a + dcy); fl.Q.value = q;
-    env(g, t0, a, peak, dcy); s.connect(fl); fl.connect(g); g.connect(lp); s.start(t0, Math.random()); s.stop(t0 + a + dcy + 0.05);
+    env(g, t0, a, peak, dcy); s.connect(fl); fl.connect(g); g.connect(dest); s.start(t0, Math.random()); s.stop(t0 + a + dcy + 0.05);
   }
   const MIYAKO = [293.7, 311.1, 392, 440, 466.2]; // the miyako-bushi scale, on D
   return {
@@ -86,6 +88,20 @@ const sfx = (() => {
     hurt() { tone(120, 'sawtooth', 0.25, 0.005, 0.35, lp, 0.4); noise(0.3, 0.005, 0.3, 'lowpass', 1200); },
     kamae(onK) { if (onK) { noise(0.08, 0.002, 0.06, 'bandpass', 3000, 4); tone(1600, 'sine', 0.03, 0.002, 0.15); } },
     noto() { noise(0.1, 0.002, 0.05, 'bandpass', 2600, 5); noise(0.08, 0.002, 0.05, 'bandpass', 2000, 5, 0.09); },
+    // zubaba: the blade tears the air (zu), then two heavy hits land (ba, ba), three on a perfect cut, all through the drive
+    zubaba(perfect) {
+      if (!ac) return; const n = perfect ? 3 : 2;
+      noise(0.85, 0.002, 0.11, 'bandpass', 5200, 1.2, 0, 700, drive);              // zu: a falling tear
+      noise(0.4, 0.001, 0.05, 'highpass', 3000, 0.7, 0.01, 0, drive);
+      for (let k = 0; k < n; k++) {
+        const d = 0.075 + k * 0.075, last = k === n - 1;
+        noise(last ? 1.0 : 0.85, 0.002, last ? 0.32 : 0.2, 'lowpass', 1600, 0.8, d, 180, drive);   // ba: the body
+        tone(last ? 120 : 150, 'sine', last ? 1.1 : 0.9, 0.003, last ? 0.55 : 0.32, drive, 0.3, d); // the thump under it
+        noise(0.45, 0.001, 0.04, 'bandpass', 2600, 2, d, 0, drive);                                  // the edge of the hit
+      }
+      for (const f of [2093, 3136]) tone(f, 'sine', 0.06, 0.002, 0.9, master, 1, 0.08 + n * 0.075);
+      tone(46, 'triangle', 0.8, 0.006, 1.2, master, 0.5, 0.08 + (n - 1) * 0.075);
+    },
     // the draw: a fast rising steel hiss that ends in a ring
     draw() {
       noise(0.35, 0.004, 0.09, 'bandpass', 2500, 2, 0, 9000);

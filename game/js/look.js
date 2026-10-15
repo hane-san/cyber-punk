@@ -220,6 +220,15 @@ const FX = {
   ring: canvasTex(256, 256, (g) => brushRing(g, 128, 128, 104, 16, '#d9472b')),
   ringG: canvasTex(256, 256, (g) => brushRing(g, 128, 128, 104, 20, '#f3d58c')),
   ens: canvasTex(256, 256, (g) => brushRing(g, 128, 128, 100, 14, '#1d1b20')),
+  // the lock-on mark: asagi, so it never reads as one of the vermilion or indigo rounds. A thin double ring with
+  // four ticks pointing in, like a gun-sight drawn with a brush.
+  lock: canvasTex(256, 256, (g) => {
+    g.shadowColor = '#bff4ff'; g.shadowBlur = 10; brushRing(g, 128, 128, 96, 9, '#3fb3c4');
+    g.strokeStyle = '#e8fbff'; g.lineWidth = 3; g.beginPath(); g.arc(128, 128, 78, 0, TAU); g.stroke();
+    g.lineCap = 'round'; g.lineWidth = 9; g.strokeStyle = '#3fb3c4';
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4; g.beginPath(); g.moveTo(128 + Math.cos(a) * 118, 128 + Math.sin(a) * 118); g.lineTo(128 + Math.cos(a) * 92, 128 + Math.sin(a) * 92); g.stroke(); }
+  }),
+  ringA: canvasTex(256, 256, (g) => { g.shadowColor = '#bff4ff'; g.shadowBlur = 8; brushRing(g, 128, 128, 104, 14, '#3fb3c4'); }),
   slash: canvasTex(512, 64, (g) => { const gr = g.createLinearGradient(0, 0, 512, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.2, 'rgba(255,255,255,1)'); gr.addColorStop(0.85, 'rgba(255,250,240,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(0, 32); g.quadraticCurveTo(256, 4, 512, 30); g.quadraticCurveTo(256, 44, 0, 32); g.fill(); }),
   spark: canvasTex(32, 32, (g) => { const r = g.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, 'rgba(255,255,240,1)'); r.addColorStop(0.4, 'rgba(255,210,120,0.8)'); r.addColorStop(1, 'rgba(255,120,40,0)'); g.fillStyle = r; g.fillRect(0, 0, 32, 32); }),
   dot: canvasTex(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }),

@@ -1,0 +1,182 @@
+<title>浮世電走</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Shippori+Mincho:wght@500;700;800&family=Zen+Antique&display=swap">
+<style>
+/* Layout: a full-bleed print. The HUD is set like the text blocks of a woodblock print: a vertical title cartouche,
+   a seal for each life, numerals in an old face. Single deliberate look (washi and sumi), the same in either theme. */
+:root {
+  --paper: #efe3c8;
+  --paper-dk: #d8c7a2;
+  --sumi: #1d1b20;
+  --shu: #d9472b;
+  --ai: #23466e;
+  --kin: #d9a73e;
+  --sheet: rgba(239, 227, 200, 0.95);
+  --font-brush: "Yuji Syuku", "Zen Antique", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-text: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-num: "Zen Antique", "Shippori Mincho", "Hiragino Mincho ProN", serif;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; overflow: hidden; background: var(--paper); color: var(--sumi);
+  font-family: var(--font-text); font-size: 14px;
+  overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+#app { position: fixed; inset: 0; }
+#app canvas { display: block; width: 100%; height: 100%; }
+button { font-family: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--shu); outline-offset: 2px; }
+
+/* HUD: speed in an old numeral face, three seals for life, souls counted in kanji */
+#hud { position: fixed; z-index: 5; pointer-events: none; left: calc(env(safe-area-inset-left, 0px) + 16px); top: calc(env(safe-area-inset-top, 0px) + 12px); }
+.speed { display: flex; align-items: baseline; gap: 4px; font-family: var(--font-num); color: var(--paper); text-shadow: 0 0 1px var(--sumi), 0 1px 0 var(--sumi), 1px 0 0 var(--sumi), -1px 0 0 var(--sumi), 0 -1px 0 var(--sumi); }
+.speed b { font-size: 34px; font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.speed small { font-size: 11px; letter-spacing: 0.16em; }
+.seals { display: flex; gap: 5px; margin-top: 7px; }
+.seals i { width: 15px; height: 15px; border-radius: 2px; background: var(--shu); box-shadow: inset 0 0 0 2px rgba(255, 230, 210, 0.5), 0 0 0 1px var(--sumi); transition: opacity 0.3s, transform 0.3s; }
+.seals i.off { opacity: 0.18; transform: scale(0.8); }
+.souls { margin-top: 6px; font-family: var(--font-text); font-weight: 700; font-size: 12px; letter-spacing: 0.12em; color: var(--paper); text-shadow: 0 0 2px var(--sumi), 0 0 2px var(--sumi); }
+
+/* the cartouche: a vertical title slip with a vermilion border, as in a print series */
+#cart {
+  position: fixed; z-index: 5; pointer-events: none; right: calc(env(safe-area-inset-right, 0px) + 14px); top: calc(env(safe-area-inset-top, 0px) + 58px);
+  display: flex; flex-direction: row-reverse; gap: 4px; align-items: flex-start; opacity: 0; transform: translateY(-6px); transition: opacity 0.8s, transform 0.8s;
+}
+#cart.on { opacity: 1; transform: none; }
+#cart .slip { width: 1em; word-break: break-all; text-align: center; background: var(--paper); border: 2px solid var(--shu); box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 4px var(--shu); padding: 10px 6px; font-family: var(--font-brush); font-size: 22px; line-height: 1.05; letter-spacing: 0.08em; color: var(--sumi); }
+#cart .sub { width: 1em; word-break: break-all; text-align: center; line-height: 1.25; background: rgba(239, 227, 200, 0.9); border: 1px solid var(--sumi); padding: 8px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--sumi); }
+#cart .series { width: 1em; word-break: break-all; text-align: center; line-height: 1.2; font-size: 10px; font-weight: 700; letter-spacing: 0.2em; color: var(--paper); text-shadow: 0 0 2px var(--sumi), 0 0 2px var(--sumi); padding-top: 4px; }
+
+#toast {
+  position: fixed; z-index: 6; pointer-events: none; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 22%); transform: translateX(-50%);
+  text-align: center; font-family: var(--font-brush); font-size: 26px; color: var(--paper); opacity: 0; transition: opacity 0.35s;
+  text-shadow: 0 0 3px var(--sumi), 0 0 3px var(--sumi), 0 0 6px var(--sumi); white-space: nowrap;
+}
+#toast.on { opacity: 1; }
+#toast small { display: block; font-family: var(--font-text); font-weight: 700; font-size: 12px; letter-spacing: 0.14em; margin-top: 2px; }
+
+/* the stamp of the cut: a brush character in vermilion inside a seal frame */
+#stamp { position: fixed; z-index: 7; pointer-events: none; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(0.6) rotate(-6deg); opacity: 0; }
+#stamp .ch { font-family: var(--font-brush); font-size: min(34vw, 190px); line-height: 1; color: var(--shu); text-shadow: 3px 3px 0 var(--sumi), -1px -1px 0 var(--paper); white-space: nowrap; }
+#stamp .ch.long { font-size: min(26vw, 150px); }
+#stamp .seal { position: absolute; right: -10%; bottom: -6%; width: 1em; word-break: break-all; text-align: center; line-height: 1.15; background: var(--shu); color: var(--paper); font-family: var(--font-text); font-weight: 800; font-size: 13px; padding: 6px 3px; letter-spacing: 0.1em; border: 1px solid var(--sumi); }
+#stamp.on { animation: stamp 1.05s cubic-bezier(.2, 1.6, .4, 1) forwards; }
+@keyframes stamp { 0% { opacity: 0; transform: translate(-50%, -50%) scale(1.9) rotate(-10deg); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(0.92) rotate(-5deg); } 22% { transform: translate(-50%, -50%) scale(1) rotate(-6deg); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -54%) scale(1.03) rotate(-6deg); } }
+
+/* the stance: an ensō is drawn round the finger while it holds still */
+#ens { position: fixed; z-index: 4; pointer-events: none; width: 104px; height: 104px; margin: -52px 0 0 -52px; opacity: 0; transition: opacity 0.12s; }
+#ens.show { opacity: 1; }
+#ens circle { fill: none; stroke: var(--sumi); stroke-width: 7; stroke-linecap: round; stroke-dasharray: 280; stroke-dashoffset: 280; }
+#ens.full circle { stroke: var(--shu); }
+#stick { position: fixed; z-index: 4; pointer-events: none; width: 100px; height: 100px; margin: -50px 0 0 -50px; border-radius: 50%; border: 1.5px solid rgba(29, 27, 32, 0.4); opacity: 0; transition: opacity 0.15s; }
+#stick.on { opacity: 1; }
+#stick i { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; background: rgba(29, 27, 32, 0.45); }
+
+#btnMenu {
+  position: fixed; z-index: 6; border: 0; background: transparent; width: 44px; height: 44px; display: grid; place-items: center;
+  right: calc(env(safe-area-inset-right, 0px) + 8px); top: calc(env(safe-area-inset-top, 0px) + 6px);
+}
+#hint { position: fixed; z-index: 5; pointer-events: none; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 26px); text-align: center; font-weight: 700; font-size: 12px; letter-spacing: 0.06em; line-height: 1.8; color: var(--paper); text-shadow: 0 0 3px var(--sumi), 0 0 3px var(--sumi); transition: opacity 1s; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* sheets: the start, the menu with the map, the end */
+.sheet { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; overflow-y: auto; background: rgba(29, 27, 32, 0.35); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 16px); }
+.card { width: min(440px, 100%); background: var(--sheet); border: 2px solid var(--sumi); box-shadow: inset 0 0 0 4px var(--sheet), inset 0 0 0 5px var(--shu), 6px 6px 0 rgba(29, 27, 32, 0.35); padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+.title { display: flex; gap: 14px; align-items: flex-start; }
+.title h1 { flex: none; width: 1em; word-break: break-all; text-align: center; margin: 0; font-family: var(--font-brush); font-weight: 400; font-size: 52px; line-height: 1; letter-spacing: 0.06em; color: var(--sumi); border: 2px solid var(--shu); padding: 10px 6px; background: var(--paper); }
+.title .lede { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.24em; color: var(--shu); }
+p { margin: 0; line-height: 1.75; font-size: 13.5px; font-weight: 500; }
+.how { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12.5px; line-height: 1.6; }
+.how b { font-family: var(--font-brush); font-weight: 400; font-size: 15px; color: var(--shu); white-space: nowrap; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.go { border: 2px solid var(--sumi); background: var(--shu); color: var(--paper); font-family: var(--font-brush); font-size: 20px; padding: 8px 18px; box-shadow: 3px 3px 0 var(--sumi); }
+.go:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--sumi); }
+.ghost { border: 1.5px solid var(--sumi); background: transparent; font-weight: 700; font-size: 13px; padding: 7px 12px; }
+.ghost:active { background: var(--paper-dk); }
+.label { font-size: 11px; font-weight: 700; color: var(--ai); letter-spacing: 0.08em; }
+#mapCv { width: 100%; height: auto; border: 1.5px solid var(--sumi); background: var(--paper); display: block; }
+.rec { display: flex; gap: 16px; font-size: 12px; font-weight: 700; }
+.rec b { font-family: var(--font-num); font-weight: 400; font-size: 22px; margin-right: 3px; }
+h2 { margin: 0; font-family: var(--font-brush); font-weight: 400; font-size: 30px; }
+@media (prefers-reduced-motion: reduce) { #stamp.on { animation-duration: 0.01s; } #cart, #toast, #hint { transition: none; } }
+</style>
+
+<div id="app"></div>
+<div id="hud" hidden>
+  <div class="speed"><b id="spd">0</b><small>km/h</small></div>
+  <div class="seals" id="seals"><i></i><i></i><i></i></div>
+  <div class="souls" id="souls">魂 〇</div>
+</div>
+<div id="cart" aria-live="polite"><div class="series">名所東京百景</div><div class="slip" id="cartName">日本橋</div><div class="sub" id="cartSub"></div></div>
+<div id="toast"></div>
+<div id="stamp"><div class="ch" id="stampCh">斬</div><div class="seal" id="stampSeal">一番</div></div>
+<svg id="ens" viewBox="0 0 104 104" aria-hidden="true"><circle cx="52" cy="52" r="44" transform="rotate(-80 52 52)"/></svg>
+<div id="stick"><i id="knob"></i></div>
+<div id="hint" hidden></div>
+<button id="btnMenu" type="button" aria-label="絵図と設定" hidden>
+  <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 4 L27 22 A13 13 0 0 1 3 22 Z" fill="#efe3c8" stroke="#1d1b20" stroke-width="1.6"/><path d="M15 4 L15 25 M15 4 L9 24 M15 4 L21 24 M15 4 L5 22 M15 4 L25 22" stroke="#1d1b20" stroke-width="1"/><circle cx="15" cy="23" r="1.6" fill="#d9472b"/></svg>
+</button>
+
+<section class="sheet" id="startSheet">
+  <div class="card">
+    <div class="title">
+      <h1>浮世電走</h1>
+      <div class="lede">
+        <div class="eyebrow">試作 〇・一 ── 地図と走り</div>
+        <p>動力板に乗った合羽の旅人が、日本橋を発って広い東京を駆け抜ける。空には能面の群れが人魂を撃ち、道には面を着けた異人が薙刀を構えて立つ。速さで躱し、構えて、一閃。</p>
+      </div>
+    </div>
+    <div class="how">
+      <b>操る</b><span>画面をなぞって曲がる。上で前傾して加速、下で減速、下に倒しつつ曲げると滑走。短い入力は横滑り、押し続けると大きく弧を描く。</span>
+      <b>構え</b><span>指を止めて長押し。減速しながら、道の先の異人へ自然に寄っていく。</span>
+      <b>一閃</b><span>相手の朱の輪が閉じて金に変わり、鼓が「ポン」と鳴る一瞬に指を離す。早ければ弾かれ、遅ければ斬られる。</span>
+      <b>躱す</b><span>人魂は速さで振り切り、隙間へ滑り込む。首都高の下は空から撃たれない。</span>
+    </div>
+    <div class="row"><button class="go" id="btnGo" type="button">日本橋から発つ</button><button class="ghost" id="btnRandom" type="button">どこかの道から</button></div>
+    <span class="label">縦画面推奨・音が出ます・キーボードは矢印とスペース</span>
+  </div>
+</section>
+
+<section class="sheet" id="menuSheet" hidden>
+  <div class="card">
+    <div class="row" style="justify-content: space-between;"><h2>東京絵図</h2><span class="label" id="mapWhere"></span></div>
+    <canvas id="mapCv" width="880" height="690"></canvas>
+    <div class="rec"><span><b id="recDist">0.0</b>里程（km）</span><span><b id="recSouls">0</b>魂</span></div>
+    <div class="row">
+      <button class="ghost" id="mTime" type="button">時刻：移ろう</button>
+      <button class="ghost" id="mSound" type="button">音：あり</button>
+      <button class="ghost" id="mThreat" type="button">妖：出る</button>
+    </div>
+    <div class="row">
+      <button class="ghost" id="mHome" type="button">日本橋へ戻る</button>
+      <button class="ghost" id="mRandom" type="button">どこかの道へ</button>
+      <button class="go" id="mClose" type="button">走りに戻る</button>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="overSheet" hidden>
+  <div class="card">
+    <div class="eyebrow" id="overCause">人魂</div>
+    <h2>旅、ここに途切れる</h2>
+    <p id="overText"></p>
+    <div class="row"><button class="go" id="overRetry" type="button">その場から立ち上がる</button><button class="ghost" id="overHome" type="button">日本橋から</button></div>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/base.js"></script>
+<script src="js/map.js"></script>
+<script src="js/look.js"></script>
+<script src="js/city.js"></script>
+<script src="js/rider.js"></script>
+<script src="js/ride.js"></script>
+<script src="js/yokai.js"></script>
+<script src="js/iai.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>

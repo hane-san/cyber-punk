@@ -1,0 +1,87 @@
+// ---------------------------------------------------------------- sound: procedural WebAudio, in the voice of the noh stage
+// The board hums and the wind rises with speed. The other world speaks in stage instruments: the nohkan flute when
+// an assault arrives, the kakegoe call (ヨォー) when a figure winds up, the tsuzumi (ポン) that marks the instant to cut,
+// hyoshigi clappers at the start, and a taiko under the cut itself.
+const sfx = (() => {
+  let ac = null, master, hum, humG, humF, wind, windG, windF, lp, droneG, droneO;
+  let on = store.get('ukiyo.sound', true);
+  function init() {
+    if (ac) return;
+    try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    master = ac.createGain(); master.gain.value = on ? 0.8 : 0;
+    lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 18000; lp.connect(master); master.connect(ac.destination);
+    hum = ac.createOscillator(); hum.type = 'sawtooth'; hum.frequency.value = 60; humF = ac.createBiquadFilter(); humF.type = 'lowpass'; humF.frequency.value = 400;
+    humG = ac.createGain(); humG.gain.value = 0; hum.connect(humF); humF.connect(humG); humG.connect(lp); hum.start();
+    const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    wind = ac.createBufferSource(); wind.buffer = nb; wind.loop = true; windF = ac.createBiquadFilter(); windF.type = 'bandpass'; windF.frequency.value = 500; windF.Q.value = 0.6;
+    windG = ac.createGain(); windG.gain.value = 0; wind.connect(windF); windF.connect(windG); windG.connect(lp); wind.start();
+    // the held breath of the stance: a low breathy shakuhachi-like tone
+    droneO = ac.createOscillator(); droneO.type = 'sine'; droneO.frequency.value = 146.8; droneG = ac.createGain(); droneG.gain.value = 0; droneO.connect(droneG); droneG.connect(master); droneO.start();
+    sfx.noise = nb;
+  }
+  const now = () => ac.currentTime;
+  function env(g, t0, a, peak, dcy) { g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak, t0 + a); g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + dcy); }
+  function tone(freq, type, peak, a, dcy, dest = lp, glide = 0, delay = 0) {
+    if (!ac) return; const t0 = now() + delay, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(freq, t0);
+    if (glide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq * glide), t0 + a + dcy);
+    env(g, t0, a, peak, dcy); o.connect(g); g.connect(dest); o.start(t0); o.stop(t0 + a + dcy + 0.05);
+  }
+  function noise(peak, a, dcy, ftype, f, q = 1, delay = 0, fEnd = 0) {
+    if (!ac) return; const t0 = now() + delay, s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
+    s.buffer = sfx.noise; fl.type = ftype; fl.frequency.setValueAtTime(f, t0); if (fEnd) fl.frequency.exponentialRampToValueAtTime(fEnd, t0 + a + dcy); fl.Q.value = q;
+    env(g, t0, a, peak, dcy); s.connect(fl); fl.connect(g); g.connect(lp); s.start(t0, Math.random()); s.stop(t0 + a + dcy + 0.05);
+  }
+  const MIYAKO = [293.7, 311.1, 392, 440, 466.2]; // the miyako-bushi scale, on D
+  return {
+    resume() { init(); if (ac && ac.state === 'suspended') ac.resume(); },
+    get on() { return on; },
+    toggle() { on = !on; store.set('ukiyo.sound', on); if (master) master.gain.value = on ? 0.8 : 0; return on; },
+    update(speed, kamae, slow) {
+      if (!ac) return; const t0 = now(), k = clamp(speed / 70, 0, 1);
+      hum.frequency.setTargetAtTime(48 + k * 70, t0, 0.1); humF.frequency.setTargetAtTime(220 + k * 900, t0, 0.1); humG.gain.setTargetAtTime(0.03 + k * 0.05, t0, 0.15);
+      windF.frequency.setTargetAtTime(300 + k * 1500, t0, 0.2); windG.gain.setTargetAtTime(k * k * 0.22, t0, 0.2);
+      lp.frequency.setTargetAtTime(kamae || slow ? 1400 : 18000, t0, kamae ? 0.25 : 0.08);
+      droneG.gain.setTargetAtTime(kamae ? 0.06 : 0, t0, 0.2); droneO.frequency.setTargetAtTime(146.8 * (1 + Math.sin(t0 * 5) * 0.004), t0, 0.05);
+    },
+    hop() { noise(0.12, 0.005, 0.12, 'bandpass', 900, 2); },
+    land(k) { noise(0.25 * k + 0.05, 0.005, 0.18, 'lowpass', 500); tone(70, 'sine', 0.2 * k + 0.05, 0.005, 0.2); },
+    scrape(k) { noise(0.12 * k, 0.005, 0.08, 'bandpass', 2600, 3); },
+    crash() { noise(0.5, 0.005, 0.5, 'lowpass', 900, 1, 0, 120); tone(55, 'sine', 0.5, 0.005, 0.5, lp, 0.5); },
+    splash() { noise(0.2, 0.01, 0.3, 'highpass', 1400, 0.8); },
+    dash() { noise(0.18, 0.01, 0.35, 'bandpass', 600, 1, 0, 2600); },
+    chime(n) { const f = MIYAKO[n % 5] * (1 + Math.floor(n / 5) % 3); tone(f * 2, 'triangle', 0.08, 0.003, 0.5); tone(f * 4.01, 'sine', 0.03, 0.003, 0.3); },
+    volley() { noise(0.06, 0.01, 0.4, 'bandpass', 1800, 4, 0, 900); },
+    // the nohkan: a shrill breathy flute that rises and breaks (the hishigi)
+    nohkan() {
+      if (!ac) return; const t0 = now(), o = ac.createOscillator(), g = ac.createGain(), v = ac.createOscillator(), vg = ac.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(880, t0); o.frequency.exponentialRampToValueAtTime(1760, t0 + 0.9); o.frequency.exponentialRampToValueAtTime(2349, t0 + 1.25);
+      v.frequency.value = 6; vg.gain.value = 18; v.connect(vg); vg.connect(o.frequency); v.start(t0); v.stop(t0 + 1.6);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.2); g.gain.setValueAtTime(0.07, t0 + 1.1); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
+      o.connect(g); g.connect(lp); o.start(t0); o.stop(t0 + 1.65); noise(0.03, 0.2, 1.3, 'bandpass', 2400, 6);
+    },
+    // kakegoe: a voiced "yo-o" through two formants
+    yoo() {
+      if (!ac) return; const t0 = now(), o = ac.createOscillator(), f1 = ac.createBiquadFilter(), f2 = ac.createBiquadFilter(), g = ac.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(190, t0); o.frequency.linearRampToValueAtTime(260, t0 + 0.35); o.frequency.linearRampToValueAtTime(170, t0 + 0.7);
+      f1.type = 'bandpass'; f1.frequency.value = 480; f1.Q.value = 6; f2.type = 'bandpass'; f2.frequency.value = 860; f2.Q.value = 7;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.14, t0 + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.72);
+      o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(lp); o.start(t0); o.stop(t0 + 0.75);
+    },
+    // the tsuzumi: a skin struck once, pitch dropping fast
+    pon() { tone(520, 'sine', 0.35, 0.002, 0.22, master, 0.55); noise(0.12, 0.001, 0.04, 'bandpass', 2400, 2); },
+    cut() { noise(0.25, 0.004, 0.25, 'highpass', 2000, 0.7, 0, 6000); },
+    strike(perfect) {
+      // shakin: steel, ringing partials; then the taiko under it
+      noise(0.45, 0.002, 0.18, 'highpass', 3500, 0.8);
+      for (const f of [2093, 3136, 4699]) tone(f, 'sine', perfect ? 0.08 : 0.05, 0.002, perfect ? 1.4 : 0.9, master);
+      tone(90, 'sine', 0.7, 0.003, 0.7, master, 0.45, 0.06); noise(0.35, 0.003, 0.4, 'lowpass', 300, 1, 0.06);
+      if (perfect) { tone(65, 'sine', 0.6, 0.003, 0.9, master, 0.5, 0.3); this.hyoshigi(0.55); }
+    },
+    clang() { for (const f of [1250, 1870, 2610]) tone(f, 'square', 0.04, 0.002, 0.35); noise(0.2, 0.002, 0.1, 'bandpass', 3200, 3); },
+    hurt() { tone(120, 'sawtooth', 0.25, 0.005, 0.35, lp, 0.4); noise(0.3, 0.005, 0.3, 'lowpass', 1200); },
+    kamae(onK) { if (onK) { noise(0.08, 0.002, 0.06, 'bandpass', 3000, 4); tone(1600, 'sine', 0.03, 0.002, 0.15); } },
+    noto() { noise(0.1, 0.002, 0.05, 'bandpass', 2600, 5); noise(0.08, 0.002, 0.05, 'bandpass', 2000, 5, 0.09); },
+    // hyoshigi: two hard wooden claps
+    hyoshigi(delay = 0) { for (const d of [0, 0.16]) { noise(0.5, 0.001, 0.05, 'bandpass', 1900, 7, delay + d); tone(1150, 'square', 0.06, 0.001, 0.05, lp, 1, delay + d); } },
+  };
+})();

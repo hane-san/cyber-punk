@@ -2,7 +2,7 @@
 // Metres. +x is east, +z is south, and the origin is the palace. District, river and road positions follow the
 // real city, rounded and simplified: rings and radials around the palace, the Sumida flowing south into the bay,
 // the high Yamanote plateau in the west and the flat Shitamachi lowland in the east.
-const WORLD = { x0: -11000, x1: 12000, z0: -9000, z1: 9000 };
+const WORLD = { x0: -36000, x1: 36000, z0: -30000, z1: 32000 };
 const WATER_Y = -1.0;
 const CELL = 80; // pitch of the local street grid
 const EXP_H = 15; // expressway deck height above the land
@@ -17,6 +17,12 @@ const KINDS = {
   port:   { grid: 2, towerP: 0, h: [10, 20], neon: 0.04, lot: 44, port: true, ground: 'nibi' },
   park:   { grid: 0, trees: 1, ground: 'moegi' },
   palace: { grid: 0, trees: 0.5, ground: 'suna' },
+  // beyond the city: the suburbs, the paddies, the wooded hills, the cedar mountains and the shore
+  suburb: { grid: 2, towerP: 0, h: [5, 8], neon: 0.05, lot: 15, wood: true, empty: 0.38, danchi: 0.07, ground: 'tsuchi' },
+  rural:  { grid: 0, rural: 1, ground: 'moegi' },
+  satoyama: { grid: 0, rural: 1, forest: 0.45, ground: 'moegi' },
+  mount:  { grid: 0, forest: 1, ground: 'yama' },
+  coast:  { grid: 0, rural: 1, coast: 1, ground: 'suna' },
 };
 const KIND_KEYS = Object.keys(KINDS);
 
@@ -47,10 +53,27 @@ const DISTRICTS = [
   { name: '湾岸', sub: '倉庫と起重機', x: 3800, z: 5000, r: 1100, kind: 'port' },
   { name: '台場', sub: '海上の観覧車', x: 2100, z: 6300, r: 700, kind: 'port' },
 ];
+DISTRICTS.push(
+  { name: '多摩川', sub: '夕暮れの土手と鉄橋', x: -14000, z: 8300, r: 1700, kind: 'suburb' },
+  { name: '武蔵野', sub: '雑木林と団地', x: -18000, z: -2500, r: 3200, kind: 'suburb' },
+  { name: '高尾', sub: '山の入口', x: -25500, z: 600, r: 2600, kind: 'satoyama' },
+  { name: '奥多摩', sub: '杉の谷、峠の道', x: -32000, z: -4500, r: 5200, kind: 'mount' },
+  { name: '所沢', sub: '茶畑と雑木林', x: -16500, z: -15500, r: 3200, kind: 'satoyama' },
+  { name: '見沼', sub: '田んぼと送電線', x: 1500, z: -18000, r: 3600, kind: 'rural' },
+  { name: '草加', sub: '煎餅屋の旧街道', x: 6000, z: -14000, r: 2200, kind: 'suburb' },
+  { name: '手賀沼', sub: '沼と葦原', x: 19500, z: -12500, r: 3200, kind: 'rural' },
+  { name: '船橋', sub: '湾の奥の郊外', x: 16500, z: 3500, r: 2600, kind: 'suburb' },
+  { name: '木更津', sub: '干潟と潮の匂い', x: 19000, z: 24000, r: 3400, kind: 'coast' },
+  { name: '海ほたる', sub: '海の上の休み処', x: 6000, z: 17600, r: 420, kind: 'port' },
+  { name: '川崎', sub: '工場の灯', x: -6800, z: 11800, r: 2000, kind: 'port' },
+  { name: '横浜', sub: '港の見える丘', x: -11500, z: 19500, r: 2600, kind: 'neon' },
+  { name: '横須賀', sub: '岬と灯台', x: -12500, z: 28500, r: 2800, kind: 'coast' },
+  { name: '多摩丘陵', sub: '坂の上の団地', x: -17000, z: 13000, r: 3000, kind: 'suburb' },
+);
 const BASE_W = 0.33; // weight of the plain residential town everywhere
 
 // ---- district field, sampled once on a 40 m grid
-const DG = 40, DNX = Math.ceil((WORLD.x1 - WORLD.x0) / DG) + 1, DNZ = Math.ceil((WORLD.z1 - WORLD.z0) / DG) + 1;
+const DG = 60, DNX = Math.ceil((WORLD.x1 - WORLD.x0) / DG) + 1, DNZ = Math.ceil((WORLD.z1 - WORLD.z0) / DG) + 1;
 const distIdx = new Int8Array(DNX * DNZ), distW = new Float32Array(DNX * DNZ);
 (() => {
   for (let iz = 0; iz < DNZ; iz++) for (let ix = 0; ix < DNX; ix++) {
@@ -59,7 +82,8 @@ const distIdx = new Int8Array(DNX * DNZ), distW = new Float32Array(DNX * DNZ);
     const wx = x + (vnoise(x / 700, z / 700, 31) - 0.5) * 360, wz = z + (vnoise(x / 700, z / 700, 32) - 0.5) * 360;
     let best = -1, bw = BASE_W;
     for (let i = 0; i < DISTRICTS.length; i++) {
-      const d = DISTRICTS[i], dx = wx - d.x, dz = wz - d.z, w = Math.exp(-(dx * dx + dz * dz) / (d.r * d.r));
+      const d = DISTRICTS[i], dx = wx - d.x, dz = wz - d.z, q = (dx * dx + dz * dz) / (d.r * d.r); if (q > 4) continue;
+      const w = Math.exp(-q);
       if (w > bw) { bw = w; best = i; }
     }
     distIdx[iz * DNX + ix] = best; distW[iz * DNX + ix] = bw;
@@ -73,12 +97,26 @@ function distWAt(x, z) {
   const ix = clamp(Math.round((x - WORLD.x0) / DG), 0, DNX - 1), iz = clamp(Math.round((z - WORLD.z0) / DG), 0, DNZ - 1);
   return distW[iz * DNX + ix];
 }
-const kindAt = (x, z) => { const i = distAt(x, z); return i < 0 ? 'resi' : DISTRICTS[i].kind; };
+// outside the named districts the land itself decides: the town near the centre, then suburbs, then by direction
+// the paddies to the north and east, wooded hills and cedar mountains to the west, and the shore by the bay
+function regionKind(x, z) {
+  const r = Math.hypot(x / 1.1, z + 300);
+  if (r < 11500) return 'resi';
+  const wx = x + (vnoise(x / 4000, z / 4000, 61) - 0.5) * 5000;
+  if (wx < -26000) return 'mount';
+  if (wx < -18500) return 'satoyama';
+  if (r < 15500 + (vnoise(x / 3000, z / 3000, 62) - 0.5) * 4000) return 'suburb';
+  const sd = coastSD(x, z);
+  if (sd > 0 && sd < 900) return 'coast';
+  if (z > 9000 && x < -4000) return 'suburb'; // the Kanagawa hills, built up
+  return vnoise(x / 5000, z / 5000, 63) < 0.28 ? 'suburb' : 'rural';
+}
+const kindAt = (x, z) => { const i = distAt(x, z); return i < 0 ? regionKind(x, z) : DISTRICTS[i].kind; };
 
 // ---- paths: roads, expressways and rivers as polylines with arc length
 const PATHS = [];
 const PGRID = new Map(), PG = 200;
-const pgKey = (ix, iz) => (ix + 200) * 1000 + (iz + 200);
+const pgKey = (ix, iz) => (ix + 1000) * 4096 + (iz + 1000);
 class Path {
   constructor(name, kind, pts, half, opt = {}) {
     this.name = name; this.kind = kind; this.half = half; this.closed = !!opt.closed; Object.assign(this, opt);
@@ -141,12 +179,19 @@ function spline(ctrl, step = 12) {
 }
 
 // ---- water: the bay, reclaimed islands, rivers and the palace moat
-const COAST = [[-12000, 9400], [-3200, 8300], [-1700, 7100], [-700, 5600], [300, 4300], [1300, 3500], [2400, 3650], [3100, 3950], [4800, 4300], [7000, 4900], [9500, 5300], [12500, 5600]];
+const COAST = [[-40000, 9400], [-3200, 8300], [-1700, 7100], [-700, 5600], [300, 4300], [1300, 3500], [2400, 3650], [3100, 3950], [4800, 4300], [7000, 4900], [9500, 5300], [12500, 5600], [16000, 6200], [20000, 7400], [40000, 9000]];
 function coastZ(x) {
   for (let i = 0; i < COAST.length - 1; i++) if (x <= COAST[i + 1][0]) { const a = COAST[i], b = COAST[i + 1]; return lerp(a[1], b[1], (x - a[0]) / (b[0] - a[0])); }
   return COAST[COAST.length - 1][1];
 }
+// the bay's west shore (Kawasaki, Yokohama, the Miura hills) and east shore (Chiba, Kisarazu), as x by z
+const WEST_SHORE = [[0, -2600], [7000, -2600], [9500, -4600], [12000, -6200], [16000, -8200], [20000, -9600], [24000, -10600], [28000, -11000], [34000, -11600]];
+const EAST_SHORE = [[0, 40000], [7000, 23000], [9000, 21500], [13000, 19500], [18000, 17200], [23000, 15400], [28000, 14200], [34000, 13600]];
+function shoreX(T, z) { for (let i = 0; i < T.length - 1; i++) if (z <= T[i + 1][0]) { const a = T[i], b = T[i + 1]; return lerp(a[1], b[1], (z - a[0]) / (b[0] - a[0])); } return T[T.length - 1][1]; }
+// signed distance to the bay (>0 on land), not counting rivers and islands
+function coastSD(x, z) { return Math.max(coastZ(x) - z, shoreX(WEST_SHORE, z) - x, x - shoreX(EAST_SHORE, z)); }
 const ISLANDS = [
+  { name: '海ほたる', x: 6000, z: 17600, hw: 320, hd: 120, r: 100 },
   { name: '台場', x: 2150, z: 6250, hw: 900, hd: 520, r: 220 },
   { name: '有明', x: 3900, z: 6100, hw: 650, hd: 520, r: 200 },
   { name: '豊洲', x: 3700, z: 4950, hw: 620, hd: 560, r: 200 },
@@ -168,23 +213,32 @@ new Path('隅田川', 'river', spline([[3200, -9400], [3300, -8000], [3600, -600
 new Path('荒川', 'river', spline([[8400, -9400], [8800, -7000], [9000, -4000], [9300, 0], [9600, 3600], [9900, 5600]]), 190);
 new Path('神田川', 'river', spline([[-8000, -1500], [-5600, -1700], [-3600, -1900], [-1700, -1500], [-400, -1450], [1000, -1550], [2600, -1300], [3600, -1100], [4250, -1000]]), 16);
 new Path('日本橋川', 'river', spline([[-500, -1450], [200, -1000], [1000, -500], [1950, 60], [2900, 280], [4000, 560]]), 18);
+new Path('多摩川', 'river', spline([[-21000, -2500], [-18500, 0], [-16500, 3200], [-14500, 6500], [-13200, 8800], [-10500, 10400], [-8200, 11300], [-6500, 12200], [-5600, 12600]]), 130);
+new Path('江戸川', 'river', spline([[11500, -30000], [11800, -20000], [12300, -12000], [12000, -4000], [12600, 2000], [13000, 6300]]), 95);
+new Path('鶴見川', 'river', spline([[-17500, 11500], [-14000, 12500], [-10500, 13500], [-7500, 13300], [-6200, 13400]]), 22);
 new Path('目黒川', 'river', spline([[-8800, 2800], [-6800, 3700], [-5200, 4500], [-3600, 5400], [-2300, 6300], [-1500, 7000]]), 14);
 {
   const m = []; for (let k = 0; k <= 160; k++) { const a = k / 160 * TAU; m.push([Math.cos(a) * 840, -80 + Math.sin(a) * 760 * (1 + 0.06 * Math.sin(3 * a))]); }
   new Path('御堀', 'river', m, 26, { closed: true });
 }
-const SITE = { land: 0, sd: 0, river: 0 }, K_RIVER = ['river'], K_EXP = ['exp'], K_ROAD = ['art', 'path'];
+const SITE = { land: 0, sd: 0, river: 0 }, K_RIVER = ['river'], K_EXP = ['exp'], K_ROAD = ['art', 'path', 'rail'];
 // land height (as if no water had cut it) and signed distance to water (>0 on land)
 function site(x, z) {
-  const bay = coastZ(x) - z, isl = islandSD(x, z);
+  const bay = coastSD(x, z), isl = islandSD(x, z);
   let sd = Math.max(bay, isl), rd = Infinity;
   const r = nearestPath(x, z, K_RIVER);
   if (r) { rd = r.d - r.half; sd = Math.min(sd, rd); }
   // the Yamanote plateau in the west, the flat Shitamachi lowland to the east
   const yam = smooth(-300, -2300, x + 700 * Math.sin(z / 2900 + 0.7) + (vnoise(x / 3000, z / 3000, 3) - 0.5) * 900);
   let h = 3 + 19 * yam + (vnoise(x / 520, z / 520, 4) - 0.5) * 5 * yam + (vnoise(x / 1400, z / 1400, 5) - 0.5) * 2.5;
+  // further west the land climbs: rolling hills, then the cedar mountains of Okutama, smooth enough to ride
+  const wx = x + (vnoise(x / 6000, z / 6000, 64) - 0.5) * 4000;
+  const hill = smooth(-14000, -22000, wx), mtn = smooth(-22000, -31000, wx);
+  h += hill * (25 + 45 * vnoise(x / 1600, z / 1600, 65)) + mtn * (90 + 420 * vnoise(x / 3400, z / 3400, 66) + 120 * vnoise(x / 1300, z / 1300, 67));
+  // the Tama hills south-west of the city, and the Miura hills down the west shore
+  h += smooth(6000, 11000, z) * smooth(-4000, -9000, x) * 38 * vnoise(x / 1500, z / 1500, 68);
   // river valleys cut the plateau into slopes (坂)
-  if (rd < 300) h = lerp(Math.min(h, 4 + yam * 4), h, smooth(0, 300, rd));
+  if (rd < 300 + h * 3) h = lerp(Math.min(h, 4 + yam * 4), h, smooth(0, 300 + h * 3, rd));
   // reclaimed land by the bay is flat
   h = lerp(2.6, h, smooth(0, 900, Math.max(bay, -1e9))); if (isl > 0 && bay < 0) h = 2.6;
   SITE.land = h; SITE.sd = sd; SITE.river = rd;
@@ -229,18 +283,22 @@ const RINGS = [
   { name: '明治通り', c: [-200, -150], rx: 4600, rz: 4300, a2: 0.05, p2: 2.0, a3: 0.04, p3: 0.5, half: ART_HALF },
   { name: '山手通り', c: [-300, -200], rx: 6100, rz: 5800, a2: 0.04, p2: 0.7, a3: 0.05, p3: 2.2, half: ART_HALF },
   { name: '環状七号線', c: [-200, -300], rx: 8600, rz: 7400, a2: 0.03, p2: 1.6, a3: 0.04, p3: 0.9, half: 21 },
+  { name: '環状八号線', c: [-600, -300], rx: 12000, rz: 10800, a2: 0.04, p2: 0.3, a3: 0.05, p3: 1.7, half: 19 },
+  { name: '国道十六号', c: [-1500, 2000], rx: 27000, rz: 25000, a2: 0.05, p2: 2.4, a3: 0.06, p3: 0.4, half: 14 },
 ];
 const RADIALS = [
-  { name: '新宿通り', th: Math.PI + 0.09, r1: 10800, wob: 0.04, exp: '新宿線' },
-  { name: '玉川通り', th: Math.PI - 0.58, r1: 10800, wob: 0.05, exp: '渋谷線' },
-  { name: '中山道', th: Math.PI + 0.92, r1: 10800, wob: 0.05, exp: '池袋線' },
-  { name: '日光街道', th: -0.67, r1: 11000, wob: 0.05 },
-  { name: '京葉道路', th: -0.19, r1: 11000, wob: 0.04 },
+  { name: '甲州街道', th: Math.PI + 0.09, r1: 34000, wob: 0.04, exp: '中央道', expEnd: 33000 },
+  { name: '玉川通り', th: Math.PI - 0.58, r1: 34000, wob: 0.05, exp: '東名', expEnd: 30000 },
+  { name: '中山道', th: Math.PI + 0.92, r1: 34000, wob: 0.05, exp: '関越道', expEnd: 30000 },
+  { name: '日光街道', th: -0.67, r1: 34000, wob: 0.05, exp: '東北道', expFrom: 9500, expEnd: 30000 },
+  { name: '京葉道路', th: -0.19, r1: 34000, wob: 0.04, exp: '東関東道', expFrom: 9500, expEnd: 28000 },
   { name: '晴海通り', th: 0.9, r1: 9000, wob: 0.03 },
-  { name: '第一京浜', th: 1.78, r1: 10800, wob: 0.05 },
-  { name: '本郷通り', th: -1.6, r1: 10500, wob: 0.06 },
-  { name: '六本木通り', th: 2.27, r1: 10500, wob: 0.04 },
-  { name: '青梅街道', th: Math.PI + 0.32, r1: 10800, wob: 0.05 },
+  { name: '第一京浜', th: 1.78, r1: 34000, wob: 0.05 },
+  { name: '本郷通り', th: -1.6, r1: 34000, wob: 0.06 },
+  { name: '六本木通り', th: 2.27, r1: 26000, wob: 0.04 },
+  { name: '青梅街道', th: Math.PI + 0.32, r1: 34000, wob: 0.05 },
+  { name: '水戸街道', th: -0.42, r1: 34000, wob: 0.05 },
+  { name: '川越街道', th: Math.PI + 0.62, r1: 34000, wob: 0.05 },
 ];
 const EXPS = [];
 function addExp(name, pts, opt) {
@@ -250,7 +308,7 @@ function addExp(name, pts, opt) {
   for (let i = 0; i < e.n; i++) { const s = site(e.x[i], e.z[i]); base[i] = Math.max(s.sd < 0 ? WATER_Y + 2 : s.land, WATER_Y + 2); }
   for (let i = 0; i < e.n; i++) {
     let acc = 0, w = 0; for (let k = -12; k <= 12; k++) { const j = clamp(i + k, 0, e.n - 1); acc += base[j]; w++; }
-    let dk = acc / w + EXP_H;
+    let dk = Math.max(acc / w + EXP_H, base[i] + 5);
     const s = e.cum[i];
     if (e.downStart) dk = lerp(base[i] + 0.3, dk, smooth(0, 340, s));
     if (e.downEnd) dk = lerp(base[i] + 0.3, dk, smooth(e.len, e.len - 340, s));
@@ -277,12 +335,14 @@ for (const R of RADIALS) {
   const pts = radialPts(R.th, 1050, R.r1, R.wob, R.th * 3);
   const runs = dryRuns(pts, 520);
   runs.forEach((run, k) => {
-    const withExp = R.exp && k === 0;
+    const withExp = R.exp && k === 0 && !R.expFrom;
+    if (R.expFrom && k === 0) { const r0 = R.expFrom, r1 = R.expEnd; const sub = run.filter((p) => { const r = Math.hypot(p[0], p[1] + 80); return r >= r0 && r <= r1; }); if (sub.length > 40) addExp(R.exp, sub, { downEnd: true, downStart: true }); }
     new Path(R.name, 'art', run, withExp ? ART_EXP_HALF : ART_HALF);
     if (withExp) {
       // the expressway leaves the ring at 1650 m and comes down after about 8 km
-      const sub = run.filter((p) => { const r = Math.hypot(p[0], p[1] + 80); return r >= 1600 && r <= 9200; });
-      if (sub.length > 40) addExp(R.exp, sub, { downEnd: true });
+      const r0 = R.expFrom || 1600, r1 = R.expEnd || 9200;
+      const sub = run.filter((p) => { const r = Math.hypot(p[0], p[1] + 80); return r >= r0 && r <= r1; });
+      if (sub.length > 40) addExp(R.exp, sub, { downEnd: true, downStart: !!R.expFrom });
     }
   });
 }
@@ -295,6 +355,36 @@ new Path('中央通り', 'art', spline([[900, 3000], [1250, 2500], [1800, 1500],
   for (const run of dryRuns(p1, 900)) new Path('海岸通り', 'art', run, ART_EXP_HALF);
   addExp('湾岸線', p1, { downEnd: true });
 }
+// the sea road across the bay, by way of the island in the middle
+addExp('海の道', spline([[-7600, 11000], [-4500, 12400], [-1000, 14200], [2500, 16000], [6000, 17600], [10500, 20200], [15500, 22800], [17800, 23600]]), { downEnd: true, downStart: true });
+// country roads that wander between the radials
+new Path('野の道', 'art', spline([[-30000, -9000], [-24000, -6500], [-19000, -9000], [-14000, -13000], [-8000, -16500], [-1500, -19500], [5000, -21000], [12000, -18500], [20000, -15000], [27000, -9500]]), 9);
+new Path('川沿いの道', 'art', spline([[-24000, -1200], [-20500, -1600], [-18300, 400], [-16200, 3300], [-14200, 6600], [-12900, 9000], [-10600, 10900], [-8400, 11800]]), 9);
+new Path('岬の道', 'art', spline([[-10200, 15000], [-11600, 19000], [-12600, 23000], [-12200, 27000], [-13600, 30500]]), 9);
+new Path('潮の道', 'art', spline([[14500, 9000], [16500, 13500], [17200, 18000], [17600, 22000], [19500, 27500], [21000, 31000]]), 9);
+new Path('峠の道', 'art', spline([[-24500, 1500], [-27000, -800], [-29500, -3200], [-31500, -6500], [-34000, -9000]]), 9);
+// railways: the loop line and the lines out of the city. Tracks are rideable, and they cross roads at level crossings.
+const RAIL_HALF = 3.6;
+{
+  const loop = ringPts(-300, -400, 5000, 4700, 0.04, 2.6, 0.03, 1.1);
+  for (const run of dryRuns(loop, 700)) new Path('環状の線路', 'rail', run, RAIL_HALF, { closed: run.length === loop.length });
+  const lines = [
+    ['西への線路', [[1300, 0], [-600, -1300], [-4600, -700], [-9000, -1700], [-14000, -1900], [-19000, -1300], [-23000, 300], [-26500, 900]]],
+    ['海沿いの線路', [[1300, 0], [700, 2500], [-900, 5200], [-3600, 8400], [-6800, 11600], [-9300, 15500], [-11200, 19500], [-12400, 24000], [-13200, 29000]]],
+    ['北への線路', [[2300, -3300], [2700, -6000], [3100, -9500], [2600, -14000], [2200, -19000], [2800, -24500], [3400, -29500]]],
+    ['東への線路', [[2000, -1800], [5200, -1500], [9500, -1300], [13500, 400], [17000, 2600], [22000, 4500], [28000, 6400], [34000, 7600]]],
+  ];
+  for (const [nm, c] of lines) for (const run of dryRuns(spline(c), 900)) new Path(nm, 'rail', run, RAIL_HALF);
+}
+// power lines on steel pylons, striding across the country; they are not roads, only scenery
+const PYLON_STEP = 300;
+const PYLONS = [
+  spline([[-28000, -7000], [-20000, -10500], [-12000, -13500], [-4000, -16500], [5000, -20000], [14000, -18500], [24000, -15500], [33000, -12000]], 60),
+  spline([[24000, -2500], [19500, 4000], [17500, 12000], [19500, 20000], [22500, 29000]], 60),
+  spline([[-25000, 13000], [-18500, 7000], [-15500, 1000], [-14000, -6000], [-12500, -11000]], 60),
+  spline([[-30000, 4000], [-22000, 3000], [-18000, 5000]], 60),
+].map((pts) => new Path('送電線', 'pylon', pts, 4));
+
 // approach paths and the Nakamise
 const SANDO = new Path('参道', 'path', spline([[-4650, 1560], [-4700, 1250], [-4800, 950], [-4900, 720]]), 6.5);
 const NAKAMISE = new Path('仲見世', 'path', [[4520, -3240], [4520, -3500]], 5);
@@ -403,7 +493,7 @@ function roadNear(x, z, y, yaw) {
   const e = nearestPath(x, z, ['exp']);
   if (e && Math.abs(e.off) < EXP_HALF + 4 && Math.abs(y - expDeckAt(e)) < 4) cands.push({ ...e, half: EXP_HALF, kind: 'exp' });
   else {
-    const a = nearestPath(x, z, ['art', 'path']); if (a) cands.push({ ...a, kind: a.p.kind });
+    const a = nearestPath(x, z, K_ROAD); if (a) cands.push({ ...a, kind: a.p.kind });
     const [v, hh] = localNear(x, z); if (v) cands.push(v); if (hh) cands.push(hh);
   }
   let best = null, bs = Infinity;

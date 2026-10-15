@@ -76,6 +76,18 @@ void main(){
       col *= 1.0 - 0.22 * step(0.75, fract(fc.x / 0.8));
     }
   }
+  if (w > 7.5 && w < 8.5 && n.y > 0.75) { // paddies: plots between levees, ripening gold or green, a few still holding water
+    vec2 g = vWp.xz / vec2(34.0, 48.0), f = fract(g), id = floor(g);
+    float r = h21(id + 3.1);
+    vec3 rice = mix(vec3(0.80, 0.72, 0.44), vec3(0.62, 0.70, 0.42), smoothstep(0.2, 0.9, r));
+    vec3 base = r < 0.13 ? uMist * 0.92 + vec3(0.0, 0.02, 0.05) : rice;
+    float levee = 1.0 - step(0.035, f.x) * step(f.x, 0.965) * step(0.03, f.y) * step(f.y, 0.97);
+    base *= 1.0 - 0.07 * step(0.5, fract(vWp.x / 1.3 + r * 3.0)) * step(0.13, r);
+    col = mix(base, vec3(0.58, 0.54, 0.42), levee) * tint;
+  }
+  if (w > 8.5 && w < 9.5 && n.y > 0.6) { // the forest floor: dappled
+    float d = h21(floor(vWp.xz / 6.0)); col *= 0.86 + 0.18 * d;
+  }
   if (w > 2.5 && w < 3.5 && n.y < 0.97) { // roof tiles: rows running down the slope
     vec2 h = normalize(vec2(-n.z, n.x) + 1e-5);
     float u = dot(vWp.xz, h);

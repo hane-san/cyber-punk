@@ -31,22 +31,30 @@ The first cut was a hard woodblock print. The owner preferred the Wind Lover pic
 
   On top of that, the field of view opens by up to 23°, and the camera shudders more at speed.
 
-## The map: a stylised Tokyo
+## The map: Tokyo and the land around it
 
-Units are metres. +x is east, +z is south, and the origin is the palace. The world is 23 × 18 km (x −11 to 12 km, z −9 to 9 km).
+Units are metres. +x is east, +z is south, and the origin is the palace. The world is 72 × 62 km (x −36 to 36 km, z −30 to 32 km).
+
+The city in the middle is the stylised 23 wards. Around it the land opens out into empty, wistful country: paddies, cedar hills, a sea road and the shore.
 
 | Layer | What it is |
 |---|---|
-| Terrain | The Yamanote plateau (about 22 m) in the west and the flat Shitamachi lowland (about 3 m) in the east. River valleys cut slopes (坂) into the plateau, and the reclaimed land by the bay is flat. |
-| Water | The bay below a coastline, with reclaimed islands (台場, 有明, 豊洲, 晴海, 品川埠頭, 新木場). Rivers: 隅田川, 荒川, 神田川, 日本橋川, 目黒川, and the palace moat. Banks are gentle, so you can ride in, skip across at speed and ride out. |
-| Rings | 内堀通り, 外堀通り (with the 都心環状線 expressway over it), 明治通り, 山手通り and 環七. |
-| Radials | 新宿通り, 青梅街道, 玉川通り, 中山道, 日光街道, 京葉道路, 晴海通り, 第一京浜, 本郷通り and 六本木通り, plus 中央通り from 新橋 to 上野. |
-| Expressways | Decks 26 m wide, 15 m over the land: 都心環状線, 新宿線, 渋谷線, 池袋線, 向島線 (along the Sumida) and 湾岸線 (across the bay to 台場). Ramp pairs every 900 m, with up-ramps on the left. Vermilion parapets with giboshi posts are soft walls. Pillars stand in the median. |
-| Local streets | An 80 m grid, jittered, with 160 m blocks among towers. Narrow alleys (路地) run in the old town, lines end at random (T-junctions), and there are no streets in parks or on water. |
-| Districts | 24 named districts. Each kind builds differently: `tower`, `neon`, `shita` (wooden town houses), `temple`, `resi`, `port`, `park` and `palace`. A title cartouche (名所東京百景) appears when one takes over. |
-| Landmarks | 天守 on the palace with its moat walls, the red 電波塔, the 634 m 天の塔, 雷門 with its lantern and the 仲見世, 浅草寺 and its pagoda, the 大鳥居 and a tunnel of a thousand torii down the shrine approach, the Ueno pagoda among cherry trees, four kabuki screens over the 渋谷 crossing, the 日本橋 lamps, the bay wheel, and the twin-towered city hall in 新宿. |
+| Terrain | The Yamanote plateau in the west of the city and the flat Shitamachi lowland in the east. Further west, rolling hills (from about 14 km out) rise into the Okutama mountains (300–600 m from about 22 km out). The Tama and Miura hills run south-west. River valleys cut slopes into the high ground. |
+| Water | Tokyo Bay is closed by two shores: Kawasaki, Yokohama and the Miura hills to the west, and Chiba and Kisarazu to the east. It holds the reclaimed islands and Umihotaru in the middle. Rivers: 隅田川, 荒川, 江戸川, 多摩川, 鶴見川, 神田川, 日本橋川, 目黒川, and the palace moat. Banks are gentle, so you can ride in, skip across at speed and ride out. |
+| Rings | 内堀通り, 外堀通り (under the 都心環状線), 明治通り, 山手通り, 環七, 環八, and 国道十六号, a 27 km loop through the country. |
+| Radials | Twelve old roads run out to the edge of the world (甲州街道, 青梅街道, 中山道, 川越街道, 日光街道, 水戸街道, 京葉道路, 第一京浜, …), plus 中央通り. |
+| Country roads | 野の道 across the northern paddies, 川沿いの道 down the Tama, 岬の道 to the cape, 潮の道 down the Chiba shore, and 峠の道 over the Okutama pass. |
+| Expressways | Decks 26 m wide, 15 m over the land, and never sunk into a hill. 都心環状線, 新宿線→中央道 (over the mountains), 渋谷線→東名, 池袋線→関越道, 東北道, 東関東道, 向島線, 湾岸線, and 海の道 across the bay by way of Umihotaru. Ramp pairs every 900 m on land. |
+| Railways | The loop line, and lines west, down the coast, north and east. The tracks are rideable. Over water they become steel truss bridges. Where a road crosses, there is a level crossing with striped barriers, crossed signs and red lamps, and its bell rings as you come near. |
+| Power lines | Steel pylons every 300 m stride across the country with six sagging conductors. Every fifth pylon is banded in red. |
+| Local streets | An 80 m grid in the city, with 160 m blocks among towers and in the suburbs. Narrow alleys (路地) run in the old town. There are no streets in parks, on water or out in the country. |
+| Districts | 39 named districts. Outside them, the land picks its own kind: town near the centre, then suburbs, paddies to the north and east, wooded hills and cedar mountains to the west, and shore by the bay. A title cartouche (名所東京百景) appears when a district takes over. |
+| Country kinds | `suburb`: low houses with gable roofs, empty lots with vegetable patches and lone vending machines, and Showa-era housing blocks (団地). `rural`: paddies painted in the ground, with levees, ripening gold or green, a few still holding water and mirroring the sky. Also thatched farmhouses with white storehouses, a lit window and persimmon trees, small shrines in cedar groves, susuki grass, and jizō with red bibs. `satoyama`: woods among the paddies. `mount`: cedar forest. `coast`: tetrapods along the water and little boats at sea. |
+| Landmarks | In the city: 天守, 電波塔, 天の塔, 雷門 and 仲見世, 浅草寺, 大鳥居 and the thousand torii, the Ueno pagoda, the 渋谷 screens, 日本橋, the bay wheel, the city hall. Out in the country: the lighthouse on the Miura cape, whose beam turns at dusk. |
 
-The start is 日本橋, the zero milestone, facing south down the Ginza street.
+Start points: 日本橋, 豊洲, お台場, 品川, 渋谷, the Tama riverbank, the Okutama pass, the Minuma paddies, and the sea road.
+
+The map in the menu (東京絵図) is painted from the world itself: water, paddies, hills and mountains. On top it draws roads, railways (black and white), power lines and the vermilion expressways.
 
 ## Movement (carried over from Wind Lover)
 
@@ -73,7 +81,7 @@ The board keeps the Wind Lover handling. These are the numbers to protect:
 | Step | What happens |
 |---|---|
 | Stance (構え) | Hold the finger still (within 16 px) for 0.32 s; on a keyboard, hold Space. An ensō is drawn round the finger as you hold, and the stance begins when it closes. A finger that has been steering must come back to centre first. |
-| Approach | The board slows toward `KAMAE_V` (34 m/s) and lines up to pass close beside the chosen figure (`PASS_OFF` 2.8 m, on the side you are already on). It steers harder as the distance closes: rate 1.4 → 7 from 150 m to 16 m. The finger nudges at 45%. |
+| Approach | The board slows toward `KAMAE_V` (34 m/s) and is drawn, with inertia, toward a line that passes close beside the chosen figure (`PASS_OFF` 2.8 m, on the side you are already on). The pull eases in over about 0.55 s after the lock. The heading turns at a capped rate (0.55 → 2.2 from 120 m to 18 m), shown as lean. The lateral error pulls the velocity sideways through a smoothed spring rather than snapping the line. Steering for yourself takes the pull away (up to 85%), and the finger nudges at 45%. |
 | The held breath | From 70 m in to 22 m, time slows from 0.9 to 0.5 and the frame sinks: desaturated and darkened by up to about 60% at the edges. Speed effects fade out. |
 | Wind-up | The figure reads your approach. When you will reach it within one wind-up (`WINDUP` 0.95 s), it calls ヨォー, swings its mane (毛振り), and raises the naginata. A vermilion brush ring closes on it. |
 | The window | In the last `WINDOW` (0.26 s of game time, about 0.5 s real at half speed), the ring turns gold and the tsuzumi sounds ポン. Release within `REACH` (22 m) to cut. Inside the last `PERFECT` (0.11 s), the cut is 一閃. |
@@ -129,9 +137,20 @@ District cartouches come down at the top right. The menu (the fan button) shows 
 4. Train lines (the Yamanote loop) as rideable elevated tracks.
 5. Performance on real phones: spread chunk building across frames, and add instancing for lanterns and signs.
 
+## Mistral's tuning (merged)
+
+The owner had Mistral (Vibe) tune the combat on `vibe/combat-enhancement-f57a0d`, and that branch is merged:
+- a wider window (0.34 s, with 0.16 s for 一閃) and a reach of 28 m;
+- a shorter hit-stop (0.22/0.28 s) and softer camera, shake and flash;
+- more figures (up to 8) and more frequent formations;
+- start points to choose from.
+
+The start point coordinates and labels were corrected after the merge.
+
 ## Known limitations
 
-- Chunk building takes 10–40 ms per 320 m chunk on a desktop CPU (the old town and the port are the heaviest), so a phone may hitch as chunks stream in at speed.
+- Start-up builds the district field and the global towers for the whole 72 × 62 km world: about 3 s in headless Chromium on a desktop CPU.
+- Chunk building takes 10–50 ms per 320 m chunk on a desktop CPU (the old town and the port are the heaviest), so a phone may hitch as chunks stream in at speed.
 - The local grid ignores arterial angles, so blocks next to radials are cut raggedly.
 - Ramps come off the arterials under the expressway. Where an expressway has no road beneath (parts of 湾岸線), its ramps are skipped over water.
 - Buildings are axis-aligned boxes.

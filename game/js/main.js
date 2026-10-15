@@ -79,7 +79,7 @@ function updateRider(dt) {
   RIG.glow.scale.setScalar(1.8 + sf * 1.4);
   updateCape(dt, P.vel);
 }
-let last = performance.now(), visT = 0, ambT = 12;
+let last = performance.now(), visT = 0, ambT = 12, fumiT = 0;
 function frame(now) {
   requestAnimationFrame(frame);
   const dtReal = clamp((now - last) / 1000, 0, 0.05); last = now;
@@ -101,6 +101,9 @@ function frame(now) {
     ambT -= dtReal; if (ambT <= 0) { ambT = 22 + Math.random() * 30; if (Math.random() < 0.45) sfx.bell(); else if (moodPhase < 0.9 || (moodPhase > 1.9 && moodPhase < 2.9)) sfx.higurashi(); }
     updateRider(dt);
     if (LM.wheel) LM.wheel.rotation.z += dt * 0.03;
+    if (LM.lightBeam) { LM.lightBeam.rotation.y += dt * 0.6; LM.lightBeam.material.opacity = 0.05 + 0.14 * U.uNight.value; }
+    // level crossings ring as you come near: kan, kan, kan
+    fumiT -= dtReal; if (fumiT <= 0) { fumiT = 0.5; let best = 1e9; for (const c of chunks.values()) for (const q of c.crossings) best = Math.min(best, Math.hypot(q.x - P.pos.x, q.z - P.pos.z)); if (best < 140) sfx.fumikiri(1 - best / 140); }
     fxUpdate(FXN, dt); fxUpdate(FXA, dt);
   } else if (!started) { U.uTime.value += dtReal; }
   updateMood(paused ? 0 : dtReal);

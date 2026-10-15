@@ -10,7 +10,7 @@ const IAI = {
   mie: 0, mieYaw: 0, mieDist: 9, mieC: new V3(), phase: '', phaseT: 0, cutE: null, perfect: false, closeFrom: new V3(), closeTo: new V3(), swingP: 0, boomT: -1, lastResult: '', combo: 0, comboT: 0, near: 0, side: 1, split: 0, slashK: 0,
   begin() {
     if (P.dead || P.stagger > 0 || this.state !== 'none' || (this.phase && this.phase !== 'boom')) return;
-    this.state = 'kamae'; this.t = 0; P.kamae = true; sfx.kamae(true);
+    this.state = 'kamae'; this.t = 0; P.kamae = true; sfx.kamae(true); kamaePull = 0; kamaeLat = 0;
     this.pick();
   },
   pick() {
@@ -65,7 +65,7 @@ const IAI = {
     P.vel.lerp(new V3(h.x * sp, 0, h.z * sp), 0.6); P.flow = Math.min(1, P.flow + (perfect ? 0.3 : 0.2)); P.invuln = 1.2;
     P.hull = Math.min(3, P.hull + 1); P.souls += perfect ? 2 : 1; store.set('ukiyo.souls', P.souls);
     cutIjin(e);
-    this.phase = 'in'; this.phaseT = 0; this.swingP = 0; this.boomT = -1;
+    this.phase = 'in'; this.phaseT = 0; this.swingP = 0; this.boomT = -1; kamaePull = 0;
     swingStart(this.side); sfx.draw();
   },
   // the blade is through: freeze the frame
@@ -162,17 +162,32 @@ function pointFree(x, z, y) {
   }
   return true;
 }
-// the board's own steering in the stance: aim to pass close beside the figure, calm the lean
+// the board's own steering in the stance: not a snap, but a pull with weight. The assist eases in over about
+// half a second after the lock, turns the heading a little at a time, and draws the board sideways toward the pass
+// line through its velocity (inertia), so the rider feels carried rather than steered. The finger still wins.
+let kamaePull = 0, kamaeLat = 0;
 function kamaeSteer(dt) {
-  const e = IAI.target; if (!e || !e.alive) return;
-  let dx = e.pos.x - P.pos.x, dz = e.pos.z - P.pos.z; const d = Math.hypot(dx, dz);
-  const rx = -dz / d, rz = dx / d; // perpendicular to the line to the figure
+  const e = IAI.target;
+  if (!e || !e.alive) { kamaePull = Math.max(0, kamaePull - dt * 2); return; }
+  kamaePull = Math.min(1, kamaePull + dt / 0.55);
+  const pull = kamaePull * kamaePull * (3 - 2 * kamaePull);
+  const dx = e.pos.x - P.pos.x, dz = e.pos.z - P.pos.z, d = Math.hypot(dx, dz);
+  const rx = -dz / d, rz = dx / d;
   const ax = dx + rx * IAI.side * PASS_OFF, az = dz + rz * IAI.side * PASS_OFF;
-  const dyaw = wrapA(Math.atan2(ax, az) - P.yaw), k = lerp(1.4, 7, smooth(150, 16, d));
-  P.yaw += dyaw * (1 - Math.exp(-k * dt));
-  P.lean *= Math.exp(-2.5 * dt); P.leanV *= Math.exp(-2.5 * dt);
-  const lat = ax * -Math.cos(P.yaw) + az * Math.sin(P.yaw); // to the rider's right
-  P.sway = lerp(P.sway, clamp(lat * 1.4, -9, 9), 1 - Math.exp(-3 * dt));
+  const own = Math.abs(inp.jx + inp.kx); // how hard the rider is steering for themself
+  const give = pull * (1 - clamp(own * 1.6, 0, 0.85));
+  // heading: a gentle turn rate toward the pass line, capped, stronger only in the last metres
+  const dyaw = wrapA(Math.atan2(ax, az) - P.yaw), rate = lerp(0.55, 2.2, smooth(120, 18, d)) * give;
+  const turn = clamp(dyaw * rate, -1.1, 1.1) * dt;
+  P.yaw += turn;
+  // show the turn as lean, so the board banks into it like a carve
+  if (dt > 0) P.assistLean = lerp(P.assistLean, clamp(-turn / dt * 0.35, -0.4, 0.4), 1 - Math.exp(-6 * dt));
+  // the sideways draw: a soft spring on the lateral error, applied to velocity and smoothed
+  const lat = ax * -Math.cos(P.yaw) + az * Math.sin(P.yaw);
+  kamaeLat = lerp(kamaeLat, clamp(lat, -14, 14), 1 - Math.exp(-3 * dt));
+  const pushK = 1.6 * give * smooth(160, 30, d);
+  P.vel.x += -Math.cos(P.yaw) * kamaeLat * pushK * dt; P.vel.z += Math.sin(P.yaw) * kamaeLat * pushK * dt;
+  P.lean *= Math.exp(-1.2 * give * dt);
 }
 // the sword swing: a long blade on a pivot at the chest sweeps from behind, across the figure's side and out in
 // front, leaving a white trail edged in vermilion. The pivot is mirrored for a cut on the right.

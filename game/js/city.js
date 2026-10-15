@@ -21,7 +21,7 @@ function colNear(x, z) {
   for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const L = COLS.get(ckey(ix + a, iz + b)); if (L) for (const c of L) if (c._s !== _stamp) { c._s = _stamp; _near.push(c); } }
   return _near;
 }
-const ARTK = ['art', 'path', 'exp'];
+const ARTK = ['art', 'path', 'exp', 'rail'];
 function inCorridor(x, z, pad) { const a = nearestPath(x, z, ARTK); if (!a) return false; return a.d < a.half + pad + (a.p.kind === 'exp' ? 9 : 0); }
 
 // ---- small builders shared by chunks and landmarks
@@ -264,6 +264,12 @@ const LM = {};
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const x = L.x + sx * 16, z = L.z + sz * 14; B.cyl(x, y, z, 0.6, 0.4, 7, 8, 0x4f6a5a); GB.cyl(x, y + 7, z, 0.9, 0.9, 1.4, 8, COL.tamago); }
   }
   scene.add(B.mesh()); scene.add(GB.mesh(glowMat)); scene.add(SB.mesh(screenMat));
+  // the lighthouse on the cape, white, with a lamp that turns at dusk
+  { const x = -11850, z = 30400, y = terrainH(x, z), L = new Builder(), LG = new Builder();
+    L.cyl(x, y, z, 2.6, 1.7, 16, 10, COL.shikkui); L.cyl(x, y + 16, z, 2.4, 2.4, 0.6, 10, 0x6f6c68); L.cyl(x, y + 19.2, z, 1.6, 0.2, 1.6, 10, 0x6f6c68);
+    LG.cyl(x, y + 16.6, z, 1.3, 1.3, 2.6, 10, 0xfff0c0); scene.add(L.mesh()); scene.add(LG.mesh(glowMat)); addCol(null, x, z, 2.6, 2.6, y + 20, y - 2, 0, true);
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(9, 120, 16, 1, true).rotateZ(Math.PI / 2).translate(60, 0, 0), new THREE.MeshBasicMaterial({ color: 0xfff4d0, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }));
+    beam.position.set(x, y + 17.8, z); scene.add(beam); LM.lightBeam = beam; }
   // the great wheel on the bay, turning slowly
   { const L = LANDMARKS[6], y = terrainH(L.x, L.z), W = new Builder(), WG = new Builder(), r = 52;
     for (let k = 0; k < 36; k++) { const a0 = k / 36 * TAU, a1 = (k + 1) / 36 * TAU; W.beam([Math.cos(a0) * r, Math.sin(a0) * r, 0], [Math.cos(a1) * r, Math.sin(a1) * r, 0], 0.8, COL.shironeri); if (k % 2 === 0) W.beam([0, 0, 0], [Math.cos(a0) * r, Math.sin(a0) * r, 0], 0.3, COL.ginnezumi); WG.box(Math.cos(a0) * r, Math.sin(a0) * r - 3, 0, 1.6, 2.6, 1.6, 0, [COL.asagi, COL.sakura, COL.kin, COL.shu][k % 4]); }
@@ -294,20 +300,25 @@ function updateChunks(force, px, pz) {
 
 function buildChunk(cx, cz) {
   const x0 = cx * CH, z0 = cz * CH, cols = [], R = mulberry((cx * 73856093) ^ (cz * 19349663));
-  const B = new Builder(), GB = new Builder(), SB = new Builder(), wires = [];
+  const B = new Builder(), GB = new Builder(), SB = new Builder(), wires = [], crossings = [];
   // ground: a 40 × 40 height field coloured by district
-  { const N = 32, st = CH / N, hs = [], cs = [];
+  { const N = 32, st = CH / N, hs = [], cs = [], ws = [];
     for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
       const x = x0 + i * st, z = z0 + j * st, s = site(x, z), h = terrainH(x, z); hs.push(h);
-      let c;
+      let c, w = 0;
       if (s.sd < 0) c = 0x6f8fa8; else if (s.sd < 16) c = 0xb6b0a4;
-      else { const k = KINDS[kindAt(x, z)]; c = COL[k.ground] || COL.tsuchi; if (k.ground === 'nibi') c = 0xb4b0a6; }
+      else {
+        const k = KINDS[kindAt(x, z)]; c = COL[k.ground] || COL.tsuchi; if (k.ground === 'nibi') c = 0xb4b0a6;
+        if (k.rural && s.sd > 40 && h < 60) w = 8; else if (k.forest) w = 9;
+      }
+      ws.push(w);
       const n = vnoise(x / 60, z / 60, 8); const cc = new THREE.Color(c).multiplyScalar(0.94 + n * 0.1); cs.push(cc.getHex());
     }
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const k = j * (N + 1) + i, P = (a, b) => [x0 + (i + a) * st, hs[k + b * (N + 1) + a], z0 + (j + b) * st];
       const hint = [x0 + (i + 0.5) * st, -1e4, z0 + (j + 0.5) * st];
-      B.tri(P(0, 0), P(1, 0), P(1, 1), cs[k], 0, -999, hint); B.tri(P(0, 0), P(1, 1), P(0, 1), cs[k], 0, -999, hint);
+      const wv = Math.min(ws[k], ws[k + 1], ws[k + N + 1], ws[k + N + 2]) ? ws[k] : 0;
+      B.tri(P(0, 0), P(1, 0), P(1, 1), cs[k], wv, -999, hint); B.tri(P(0, 0), P(1, 1), P(0, 1), cs[k], wv, -999, hint);
     }
   }
   const yOn = (x, z) => ground(x, z, -1e9).h;
@@ -350,6 +361,8 @@ function buildChunk(cx, cz) {
     const p = PATHS[Math.floor(key / 100000)], i = key % 100000;
     const ax = p.x[i], az = p.z[i], bx = p.x[i + 1], bz = p.z[i + 1], L = Math.hypot(bx - ax, bz - az) || 1, tx = (bx - ax) / L, tz = (bz - az) / L, nx = -tz, nz = tx;
     if (p.kind === 'exp') { buildExpSeg(B, GB, cols, p, i, ax, az, bx, bz, tx, tz, nx, nz, L); continue; }
+    if (p.kind === 'rail') { buildRailSeg(B, GB, wires, crossings, cols, p, i, ax, az, bx, bz, tx, tz, nx, nz); continue; }
+    if (p.kind === 'pylon') { buildPylons(B, wires, cols, p, i); continue; }
     const h = p.kind === 'path' ? p.half : p.half - (p.half === ART_EXP_HALF ? 0 : 0);
     const col = p.kind === 'path' ? 0xd6caa8 : 0xa39f97, hint = [(ax + bx) / 2, -1e4, (az + bz) / 2];
     const ya = yOn(ax, az), yb = yOn(bx, bz), wet = site((ax + bx) / 2, (az + bz) / 2).sd < 2;
@@ -378,7 +391,7 @@ function buildChunk(cx, cz) {
   group.add(B.mesh()); if (GB.count) group.add(GB.mesh(glowMat)); if (SB.count) group.add(SB.mesh(signMat));
   if (wires.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(wires, 3)); const l = new THREE.LineSegments(g, wireMat); group.add(l); }
   scene.add(group);
-  chunks.set(chKey(cx, cz), { group, cols });
+  chunks.set(chKey(cx, cz), { group, cols, crossings });
 }
 const wireMat = new THREE.LineBasicMaterial({ color: COL.sumi });
 
@@ -438,6 +451,106 @@ function laneMarks(B, p, i, ax, az, bx, bz, tx, tz, nx, nz, half, yAt, centre, d
   if (centre) for (const sd of [-1, 1]) mark(sd * 0.35, 0, 1, 0.1, 0xe9c55c);
 }
 
+// ---- the country: paddies with farmhouses and persimmons, wooded hills, cedar mountains, the shore
+function cedar(B, x, y, z, R, s = 1) {
+  const h = (9 + R() * 6) * s;
+  B.beam([x, y - 0.5, z], [x, y + h * 0.35, z], 0.22 * s, COL.kogecha);
+  B.frustum(x, y + h * 0.2, z, 2.2 * s, 2.2 * s, 0.15, 0.15, h, R() * 3, colorJit(0x4f6047, R, 0.08));
+}
+function buildCountry(B, GB, cols, wires, r, kind, K, R) {
+  const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2, sdC = site(cx, cz).sd;
+  const near = (x, z, pad) => inCorridor(x, z, pad);
+  if (K.coast && sdC > -260 && sdC < 40) { // the shore: tetrapods along the water, and a little boat or two at sea
+    for (let k = 0; k < 6; k++) {
+      const x = lerp(r.x0, r.x1, R()), z = lerp(r.z0, r.z1, R()), sd = site(x, z).sd;
+      if (sd > -4 && sd < 10 && !near(x, z, 3)) { const y = Math.max(terrainH(x, z), WATER_Y); for (let t = 0; t < 4; t++) B.beam([x, y + 0.8, z], [x + Math.cos(t * 2.1) * 1.6, y + (t ? 0 : 2), z + Math.sin(t * 2.1) * 1.6], 0.45, 0xc9c6bc); }
+      else if (sd < -40 && R() < 0.12) { const rot = R() * TAU; B.frustum(x, WATER_Y - 0.4, z, 1.1, 3.2, 1.5, 4.0, 1.3, rot, colorJit(0xe8e4d8, R, 0.05)); B.box(x, WATER_Y + 0.9, z, 0.9, 1.6, 1.1, rot, 0x8fa8c0); }
+    }
+    if (sdC < 0) return;
+  }
+  if (sdC < 6) return;
+  const dense = K.forest || 0, n = kind === 'mount' ? 7 : 3;
+  // woods
+  if (dense && R() < (kind === 'mount' ? 0.95 : dense)) {
+    for (let k = 0; k < n; k++) {
+      const x = lerp(r.x0, r.x1, R()), z = lerp(r.z0, r.z1, R()); if (site(x, z).sd < 8 || near(x, z, 5)) continue;
+      const y = terrainH(x, z);
+      if (R() < 0.75) cedar(B, x, y, z, R, kind === 'mount' ? 1.3 : 1); else roundTree(B, x, y, z, R, R() < 0.3 ? 0xb88a52 : 0x6f7e55, 1.2);
+      addCol(cols, x, z, 0.8, 0.8, y + 6, y - 2, 0, true);
+    }
+    return;
+  }
+  if (!K.rural) return;
+  const roll = R(), x = lerp(r.x0 + 12, r.x1 - 12, R()), z = lerp(r.z0 + 12, r.z1 - 12, R());
+  if (near(x, z, 10) || site(x, z).sd < 20) return;
+  const y = terrainH(x, z) - 0.2;
+  if (roll < 0.07) { // a thatched farmhouse with a white storehouse and a persimmon tree in the yard
+    const rot = R() * TAU;
+    B.box(x, y, z, 7, 3.4, 5, rot, colorJit(0x9a8468, R, 0.05), 2);
+    B.hip(x, y + 3.4, z, 7, 5, 6.5, rot, colorJit(0x8c7a58, R, 0.06), 1.4);
+    const sx = x + Math.cos(rot) * 12, sz = z - Math.sin(rot) * 12, sy = terrainH(sx, sz);
+    B.box(sx, sy, sz, 2.6, 5, 2.6, rot, COL.shikkui, 0); B.gable(sx, sy + 5, sz, 2.6, 2.6, 1.6, rot, COL.kawara, 0.5);
+    roundTree(B, x - 10, terrainH(x - 10, z + 6), z + 6, R, 0x8a8a52, 1); for (let k = 0; k < 6; k++) GB.box(x - 10 + (R() - 0.5) * 4, terrainH(x - 10, z + 6) + 3 + R() * 3, z + 6 + (R() - 0.5) * 4, 0.22, 0.22, 0.22, 0, 0xe0782c);
+    addCol(cols, x, z, 7, 5, y + 7, y - 2, -rot, true); addCol(cols, sx, sz, 2.6, 2.6, sy + 6, sy - 2, -rot, true);
+    GB.box(x + Math.sin(rot) * 5.3, y + 1.6, z + Math.cos(rot) * 5.3, 0.8, 0.5, 0.1, rot, 0xf2c890); // a lit window, for whoever is still there
+  } else if (roll < 0.1) { // a small shrine in a grove of cedars
+    const rot = R() * TAU; torii(B, x, y, z, rot, 0.9); B.box(x - Math.sin(rot) * 6, y, z - Math.cos(rot) * 6, 1.4, 1.8, 1.2, rot, COL.kogecha, 2);
+    for (let k = 0; k < 4; k++) cedar(B, x + (R() - 0.5) * 18, y, z + (R() - 0.5) * 18, R, 1.1);
+  } else if (roll < 0.16) { // a lone persimmon or a dead tree by the paddies
+    roundTree(B, x, y, z, R, R() < 0.5 ? 0x8a8a52 : 0x7d6a52, 0.9); if (R() < 0.6) for (let k = 0; k < 5; k++) GB.box(x + (R() - 0.5) * 3, y + 2.6 + R() * 2.4, z + (R() - 0.5) * 3, 0.2, 0.2, 0.2, 0, 0xe0782c);
+  } else if (roll < 0.4) { // susuki grass in tufts, silver in the light
+    for (let k = 0; k < 7; k++) { const tx = x + (R() - 0.5) * 30, tz = z + (R() - 0.5) * 30, ty = terrainH(tx, tz); B.frustum(tx, ty - 0.2, tz, 0.5, 0.5, 0.05, 0.05, 1.4 + R(), R() * 3, colorJit(0xd8c9a0, R, 0.06)); }
+  } else if (roll < 0.43) { // jizō by the lane, with a red bib
+    B.box(x, y, z, 0.3, 0.9, 0.25, R() * 3, 0xa9a49a); B.box(x, y + 0.45, z, 0.32, 0.18, 0.27, 0, COL.shu);
+  }
+}
+// level crossings, railway lines with poles and wire, steel bridges over water
+function buildRailSeg(B, GB, wires, crossings, cols, p, i, ax, az, bx, bz, tx, tz, nx, nz) {
+  const h = RAIL_HALF, ya = ground(ax, az, -1e9).h, yb = ground(bx, bz, -1e9).h, wet = site((ax + bx) / 2, (az + bz) / 2).sd < 2, hint = [(ax + bx) / 2, -1e4, (az + bz) / 2];
+  const E = (x, z, off, y) => [x + nx * off, y, z + nz * off];
+  B.quad(E(ax, az, h, ya + 0.14), E(bx, bz, h, yb + 0.14), E(bx, bz, -h, yb + 0.14), E(ax, az, -h, ya + 0.14), 0x9b9286, 0, -999, hint);
+  for (const off of [-0.75, 0.75]) B.beam(E(ax, az, off, ya + 0.3), E(bx, bz, off, yb + 0.3), 0.07, 0x5e5a56);
+  // overhead wire, and a pole every fourth sample
+  wires.push(...E(ax, az, 0, ya + 5.6), ...E(bx, bz, 0, yb + 5.6));
+  if (i % 4 === 0) { const q = E(ax, az, 3.2, ya); B.beam(q, [q[0], q[1] + 6.4, q[2]], 0.13, 0x6f6c68); B.beam([q[0], q[1] + 6, q[2]], E(ax, az, -0.4, ya + 6), 0.07, 0x6f6c68); }
+  if (wet) { // a steel truss over the water
+    for (const sd of [-1, 1]) { const a = E(ax, az, sd * h, ya), b = E(bx, bz, sd * h, yb); B.beam([a[0], a[1] + 6, a[2]], [b[0], b[1] + 6, b[2]], 0.18, 0x7c8b96); B.beam([a[0], a[1], a[2]], [b[0], b[1] + 6, b[2]], 0.14, 0x7c8b96); B.beam([a[0], a[1] + 6, a[2]], [a[0], a[1], a[2]], 0.14, 0x7c8b96); }
+    if (i % 3 === 0) B.cyl(ax, WATER_Y - 3, az, 1.2, 1.2, ya - WATER_Y + 2.5, 8, 0xb0aca2, 0, false);
+    return;
+  }
+  // a level crossing where a road meets the line: striped barriers, a crossed sign and red lamps
+  const mx = (ax + bx) / 2, mz = (az + bz) / 2, rd = nearestPath(mx, mz, ['art', 'path']);
+  if (rd && rd.d < rd.half && i % 2 === 0) {
+    const y = (ya + yb) / 2;
+    for (const sd of [-1, 1]) {
+      const px = mx + tx * sd * 5.5 + rd.nx * (rd.half + 0.8), pz = mz + tz * sd * 5.5 + rd.nz * (rd.half + 0.8);
+      for (let k = 0; k < 6; k++) B.box(px, y + k * 0.6, pz, 0.12, 0.6, 0.12, 0, k & 1 ? 0xf0c43a : COL.sumi);
+      B.beam([px - tx * 0.7, y + 3.3, pz - tz * 0.7], [px + tx * 0.7, y + 4.1, pz + tz * 0.7], 0.08, 0xf0c43a); B.beam([px - tx * 0.7, y + 4.1, pz - tz * 0.7], [px + tx * 0.7, y + 3.3, pz + tz * 0.7], 0.08, 0xf0c43a);
+      for (const o of [-0.35, 0.35]) GB.box(px + rd.nx * 0.2 + tx * o, y + 2.6, pz + rd.nz * 0.2 + tz * o, 0.16, 0.16, 0.16, 0, 0xff4a2a);
+    }
+    crossings.push({ x: mx, z: mz });
+  }
+}
+// steel pylons every PYLON_STEP along a line, with six conductors sagging to the next one
+function pylonTop(p, s) {
+  const q = p.at(s, {}), y = terrainH(q.x, q.z), nx = -q.tz, nz = q.tx;
+  return [[30, 8], [36, 9.5], [42, 7]].flatMap(([hh, w]) => [-1, 1].map((sd) => [q.x + nx * w * sd, y + hh, q.z + nz * w * sd]));
+}
+function buildPylons(B, wires, cols, p, i) {
+  for (let n = Math.ceil(p.cum[i] / PYLON_STEP); n * PYLON_STEP < p.cum[i + 1]; n++) {
+    const s = n * PYLON_STEP, q = p.at(s, {}), y = terrainH(q.x, q.z); if (site(q.x, q.z).sd < 10 || inCorridor(q.x, q.z, 6)) continue;
+    const nx = -q.tz, nz = q.tx, col = n % 5 === 0 ? 0xc96a4a : 0x9a9c9e;
+    const leg = (a, b, t) => [q.x + (q.tx * a + nx * b) * lerp(3.6, 0.8, t), y + t * 46, q.z + (q.tz * a + nz * b) * lerp(3.6, 0.8, t)];
+    for (const [a, b] of [[1, 1], [1, -1], [-1, -1], [-1, 1]]) B.beam(leg(a, b, 0), leg(a, b, 1), 0.2, col);
+    for (let t = 0; t < 1; t += 0.17) { B.beam(leg(1, 1, t), leg(1, -1, t + 0.17), 0.08, col); B.beam(leg(-1, 1, t), leg(-1, -1, t + 0.17), 0.08, col); B.beam(leg(1, 1, t), leg(-1, 1, t + 0.17), 0.08, col); B.beam(leg(1, -1, t), leg(-1, -1, t + 0.17), 0.08, col); }
+    for (const [hh, w] of [[30, 8], [36, 9.5], [42, 7]]) B.beam([q.x - nx * w, y + hh, q.z - nz * w], [q.x + nx * w, y + hh, q.z + nz * w], 0.14, col);
+    addCol(cols, q.x, q.z, 3.6, 3.6, y + 40, y - 2, 0, true);
+    if (s + PYLON_STEP > p.len) continue;
+    const A = pylonTop(p, s), Bt = pylonTop(p, s + PYLON_STEP);
+    for (let c = 0; c < 6; c++) { let prev = A[c]; for (let k = 1; k <= 10; k++) { const u = k / 10, pt = [lerp(A[c][0], Bt[c][0], u), lerp(A[c][1], Bt[c][1], u) - Math.sin(u * Math.PI) * 7, lerp(A[c][2], Bt[c][2], u)]; wires.push(...prev, ...pt); prev = pt; } }
+  }
+}
+
 // one city block: lots by district kind
 const WOOD_PAL = [0x8f7560, 0xa08268, 0xb07462, COL.shikkui, 0x86725f, 0x977f6e];
 const MID_PAL = [0xc9b9a8, 0xd7c3b0, 0xb9a99a, 0xcfc8be, 0xc6aca0, 0xa9b4bc, 0xd8cfc0];
@@ -446,6 +559,7 @@ const PORT_PAL = [0xc88a74, 0x8fa8c0, 0xb8b6b0, 0xa8b8a0, 0xc8b496];
 function buildBlock(B, GB, SB, cols, wires, i, j, R) {
   const r = cellRect(i, j), kind = kindAt(r.xm, r.zm), K = KINDS[kind];
   if (r.x1 - r.x0 < 6 || r.z1 - r.z0 < 6) return;
+  if (K.rural || K.forest) { buildCountry(B, GB, cols, wires, r, kind, K, R); return; }
   if (!K.grid) { // park or palace: trees, and nothing to crash into but trunks
     if (kind === 'park' && !excluded(r.xm, r.zm)) for (let k = 0; k < 6; k++) {
       const x = lerp(r.x0, r.x1, R()), z = lerp(r.z0, r.z1, R()); if (site(x, z).sd < 6 || inCorridor(x, z, 5)) continue;
@@ -468,6 +582,19 @@ function buildBlock(B, GB, SB, cols, wires, i, j, R) {
     let face = null;
     if (a === 0 && westSt) face = [-1, 0]; else if (a === nx - 1 && eastSt) face = [1, 0]; else if (b === 0 && northSt) face = [0, -1]; else if (b === nz - 1 && southSt) face = [0, 1];
     const roll = R();
+    if (K.empty && roll < K.empty) { // the suburbs thin out: a vegetable patch, a persimmon tree, a vending machine glowing alone
+      const q = R();
+      if (q < 0.35) roundTree(B, x, y + 0.3, z, R, R() < 0.5 ? 0x7d8a5a : 0x9a8a5a, 0.8);
+      else if (q < 0.45) GB.box(x, y, z, 0.6, 1.9, 0.45, 0, R() < 0.5 ? 0xd8eef4 : 0xf2d9a8);
+      continue;
+    }
+    if (K.danchi && roll > 1 - K.danchi && hw > 9) { // a Showa housing block: long, five storeys, balconies all along
+      const lw = Math.max(hw, hd), ld = Math.min(hw, hd) * 0.45, along = hw > hd ? 0 : Math.PI / 2;
+      B.box(x, y, z, lw, 14, ld, along, colorJit(0xd9d2c4, R, 0.04), 4, 0xbcb6aa);
+      B.box(x, y + 14, z, lw * 0.15, 2.4, ld * 0.6, along, 0xc8c2b6);
+      addCol(cols, x, z, hw > hd ? lw : ld, hw > hd ? ld : lw, y + 14.5, y - 3, 0, true);
+      continue;
+    }
     if (roll < 0.06 && !K.port) { // an empty lot with a dead car or a vending machine
       if (R() < 0.5) { B.box(x, y + 0.3, z, 2.1, 1.2, 1, R() * 3, colorJit(0x7a6a5a, R)); addCol(cols, x, z, 2.1, 1.1, y + 1.6, y - 1, 0); }
       else { GB.box(x, y, z, 0.6, 1.9, 0.45, 0, R() < 0.5 ? 0xd8eef4 : 0xf2d9a8); }

@@ -57,6 +57,7 @@ const COL = {
   kawara: 0x7a8393,  // 瓦
   shikkui: 0xeee9dc, // 漆喰
   nibi: 0x5d6068,    // 鈍色 (asphalt)
+  yama: 0x7a8768,    // 山の緑, faded
 };
 
 const store = {

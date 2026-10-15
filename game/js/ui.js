@@ -106,26 +106,31 @@ const mx = (x) => (x - WORLD.x0) * mapS, mz = (z) => (z - WORLD.z0) * mapS;
 function drawMapBase() {
   const c = document.createElement('canvas'); c.width = MW; c.height = MH; const g = c.getContext('2d');
   g.fillStyle = '#efe3c8'; g.fillRect(0, 0, MW, MH);
-  // the bay: below the coast, minus the islands
-  g.fillStyle = '#9fb6c9'; g.beginPath(); g.moveTo(0, mz(coastZ(WORLD.x0)));
-  for (let x = WORLD.x0; x <= WORLD.x1; x += 200) g.lineTo(mx(x), mz(coastZ(x)));
-  g.lineTo(MW, MH); g.lineTo(0, MH); g.closePath(); g.fill();
-  g.fillStyle = '#efe3c8'; g.strokeStyle = '#1d1b20'; g.lineWidth = 1;
-  for (const I of ISLANDS) { const x0 = mx(I.x - I.hw), z0 = mz(I.z - I.hd), w = I.hw * 2 * mapS, h = I.hd * 2 * mapS, r = I.r * mapS; g.beginPath(); g.roundRect ? g.roundRect(x0, z0, w, h, r) : g.rect(x0, z0, w, h); g.fill(); g.stroke(); }
+  // the land painted from the world itself, a coarse raster: water, paddies, hills and mountains, the town
+  const st = 5;
+  for (let y = 0; y < MH; y += st) for (let x = 0; x < MW; x += st) {
+    const wx = (x + st / 2) / mapS + WORLD.x0, wz = (y + st / 2) / mapS + WORLD.z0, si = site(wx, wz);
+    let c = null;
+    if (si.sd < 0) c = '#9fb6c9';
+    else { const k = kindAt(wx, wz); if (si.land > 140) c = 'rgba(95,110,80,0.55)'; else if (k === 'mount' || k === 'satoyama') c = 'rgba(120,135,95,0.4)'; else if (k === 'rural' || k === 'coast') c = 'rgba(190,180,120,0.35)'; else if (k === 'suburb') c = 'rgba(160,150,130,0.18)'; }
+    if (c) { g.fillStyle = c; g.fillRect(x, y, st, st); }
+  }
   // seigaiha in the bay
   g.strokeStyle = 'rgba(35, 70, 110, 0.35)'; g.lineWidth = 1;
-  for (let y = 0; y < MH; y += 9) for (let x = (y / 9) % 2 ? 0 : 9; x < MW; x += 18) { const wx = x / mapS + WORLD.x0, wz = y / mapS + WORLD.z0; if (site(wx, wz).sd > -40) continue; g.beginPath(); g.arc(x, y, 8, Math.PI, 0); g.stroke(); }
+  for (let y = 0; y < MH; y += 9) for (let x = (y / 9) % 2 ? 0 : 9; x < MW; x += 18) { const wx = x / mapS + WORLD.x0, wz = y / mapS + WORLD.z0; if (coastSD(wx, wz) > -400) continue; g.beginPath(); g.arc(x, y, 8, Math.PI, 0); g.stroke(); }
   // parks and the palace
   for (const D of DISTRICTS) if (D.kind === 'park' || D.kind === 'palace') { g.fillStyle = D.kind === 'park' ? 'rgba(110, 140, 80, 0.45)' : 'rgba(150, 160, 110, 0.4)'; g.beginPath(); g.arc(mx(D.x), mz(D.z), D.r * mapS * 0.8, 0, TAU); g.fill(); }
   // rivers, roads, expressways
   const line = (p, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.lineJoin = 'round'; g.beginPath(); for (let i = 0; i < p.n; i += 3) { const X = mx(p.x[i]), Z = mz(p.z[i]); i ? g.lineTo(X, Z) : g.moveTo(X, Z); } g.lineTo(mx(p.x[p.n - 1]), mz(p.z[p.n - 1])); g.stroke(); };
-  for (const p of PATHS) if (p.kind === 'river') line(p, '#6f93b5', Math.max(1.5, p.half * 2 * mapS));
+  for (const p of PATHS) if (p.kind === 'river') line(p, '#6f93b5', Math.max(1.2, p.half * 2 * mapS));
   for (const p of PATHS) if (p.kind === 'art' || p.kind === 'path') line(p, 'rgba(29, 27, 32, 0.55)', p.kind === 'path' ? 1 : 1.6);
+  for (const p of PATHS) if (p.kind === 'rail') { line(p, '#1d1b20', 2.4); g.setLineDash([4, 4]); line(p, '#efe3c8', 1.2); g.setLineDash([]); }
+  for (const p of PATHS) if (p.kind === 'pylon') { g.setLineDash([2, 6]); line(p, 'rgba(29,27,32,0.45)', 1); g.setLineDash([]); }
   for (const p of PATHS) if (p.kind === 'exp') line(p, '#d9472b', 2.2);
   // districts in vertical script, landmarks as small vermilion marks
   g.fillStyle = '#1d1b20'; g.textAlign = 'center'; g.textBaseline = 'top';
   for (const D of DISTRICTS) {
-    const fs = D.r > 800 ? 17 : 13; g.font = `700 ${fs}px ${FONT_MIN}`;
+    const fs = Math.round(clamp(D.r * mapS * 0.55, 8, 14)); g.font = `700 ${fs}px ${FONT_MIN}`;
     const chars = [...D.name]; chars.forEach((ch, k) => g.fillText(ch, mx(D.x), mz(D.z) - chars.length * fs * 0.5 + k * fs));
   }
   g.fillStyle = '#d9472b';
@@ -136,7 +141,7 @@ function drawMapBase() {
     g.beginPath(); g.arc(mx(sp.x), mz(sp.z), 4, 0, TAU); g.fill();
     g.strokeStyle = '#efe3c8'; g.lineWidth = 1; g.stroke();
   }
-  g.font = `400 13px ${FONT_BRUSH}`; g.fillStyle = '#23466e'; g.fillText('東京湾', mx(1500), mz(8000));
+  g.font = `400 13px ${FONT_BRUSH}`; g.fillStyle = '#23466e'; g.fillText('東京湾', mx(3500), mz(13000));
   g.strokeStyle = '#1d1b20'; g.lineWidth = 3; g.strokeRect(1.5, 1.5, MW - 3, MH - 3);
   // the title slip
   g.fillStyle = '#efe3c8'; g.fillRect(MW - 46, 12, 34, 120); g.strokeStyle = '#d9472b'; g.lineWidth = 2; g.strokeRect(MW - 46, 12, 34, 120);
@@ -190,9 +195,6 @@ function begin(random, startId = null) {
   setTimeout(() => { hint.style.opacity = 0; }, 8000);
   setTimeout(() => { const d = distAt(P.pos.x, P.pos.z); if (d >= 0) showCart(DISTRICTS[d].name, DISTRICTS[d].sub); cartCur = d; }, 600);
 }
-$('#btnGo').addEventListener('click', () => begin(false));
+// the start: one button, from the place chosen in the list
+$('#btnGo').addEventListener('click', () => begin(false, $('#startPointSelect').value));
 $('#btnRandom').addEventListener('click', () => begin(true));
-// Start point selector
-let selectedStartPoint = null;
-$('#startPointSelect').addEventListener('change', (e) => { selectedStartPoint = e.target.value; });
-$('#btnGo').addEventListener('click', () => begin(false, selectedStartPoint));

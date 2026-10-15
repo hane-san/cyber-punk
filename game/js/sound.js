@@ -99,6 +99,8 @@ const sfx = (() => {
       for (let i = 0; i < (perfect ? 24 : 16); i++) { const d = 0.08 + Math.pow(Math.random(), 1.6) * 0.9; noise(0.25 + Math.random() * 0.2, 0.001, 0.03 + Math.random() * 0.04, 'bandpass', 2500 + Math.random() * 3500, 3, d); }
       if (perfect) { tone(55, 'sine', 0.85, 0.003, 1.5, master, 0.6, 0.18); this.hyoshigi(0.7); }
     },
+    // a level crossing's bell, far or near
+    fumikiri(k) { tone(740, 'square', 0.05 * k, 0.002, 0.16, lp); tone(1480, 'sine', 0.03 * k, 0.002, 0.12, lp); },
     // tsuke-uchi: wooden clappers struck on a board — battabatta... battari — for the mie
     tsuke(perfect) {
       const hits = perfect ? [0, 0.05, 0.1, 0.15, 0.2, 0.36] : [0, 0.06, 0.12, 0.28];

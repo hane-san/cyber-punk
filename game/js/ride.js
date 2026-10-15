@@ -15,11 +15,15 @@ const inp = { jx: 0, jy: 0, kx: 0, ky: 0, kamaeHeld: false, keys: {} };
 let shake = 0, dashPunch = 0, landSquash = 0, simT = 0, steerSm = 0;
 
 const START_POINTS = [
-  { id: 'nihonbashi', name: '\u65e5\u672c\u6a4b', x: 1950, z: 160, yaw: 0, desc: '\u65e5\u672c\u6a4b\u3001\u9752\u5c71\u901a\u304a\u306b\u5411\u304b\u3063\u3066' },
-  { id: 'toyosu', name: '\u8c4a\u6d32', x: -4600, z: 2800, yaw: Math.PI - 0.58, desc: '\u8c4a\u6d32\u5cf6\u306e\u901a\u308a\u306b' },
-  { id: 'odaiba', name: '\u304a\u53f0\u5834', x: 2150, z: 6150, yaw: 0.9, desc: '\u6d77\u5cb8\u901a\u304a\u306b' },
-  { id: 'shinagawa', name: '\u54c1\u5ddd', x: -1200, z: 5900, yaw: Math.PI + 0.3, desc: '\u7b2c\u4e00\u4eac\u6d5c\u901a\u306b' },
-  { id: 'shibuya', name: '\u6e0b\u8c37', x: 1940, z: 100, yaw: Math.PI/2 + 0.3, desc: '\u4e2d\u592e\u901a\u3042\u306b' },
+  { id: 'nihonbashi', name: '日本橋', x: 1950, z: 160, yaw: 0, desc: '五街道の起点、銀座へ南へ' },
+  { id: 'toyosu', name: '豊洲', x: 3600, z: 4700, yaw: 0.9, desc: '埋立地の晴海通り' },
+  { id: 'odaiba', name: 'お台場', x: 2150, z: 6150, yaw: 0, desc: '海岸通り、観覧車のそば' },
+  { id: 'shinagawa', name: '品川', x: -1250, z: 6000, yaw: Math.PI, desc: '第一京浜を北へ' },
+  { id: 'shibuya', name: '渋谷', x: -4600, z: 3000, yaw: Math.PI - 0.58, desc: '谷底の交差点から玉川通りへ' },
+  { id: 'tamagawa', name: '多摩川の河川敷', x: -12900, z: 9000, yaw: -0.9, desc: '夕暮れの土手と鉄橋' },
+  { id: 'okutama', name: '奥多摩の峠', x: -27000, z: -800, yaw: Math.PI - 0.6, desc: '杉林を抜ける中央道' },
+  { id: 'tanbo', name: '見沼の田んぼ', x: 1500, z: -17500, yaw: -Math.PI / 2, desc: '稲穂と送電鉄塔の道' },
+  { id: 'aqua', name: '海の上の道', x: 2500, z: 16000, yaw: 1.1, desc: '湾を渡る一本の橋' },
 ];
 const START = START_POINTS[0]; // Default: Nihonbashi, facing south down the Ginza main street
 function placeAt(x, z, yaw, speed) {
@@ -30,14 +34,14 @@ function placeAt(x, z, yaw, speed) {
   if (typeof onPlaced === 'function') onPlaced();
 }
 function placeStart(startId = null) {
-  let startPoint = START;
-  if (startId !== null && startId !== undefined) {
-    const found = START_POINTS.find(sp => sp.id === startId);
-    if (found) startPoint = found;
-  }
-  const a = nearestPath(startPoint.x, startPoint.z, ['art']);
-  const yaw = a ? Math.atan2(a.tx, a.tz) : startPoint.yaw;
-  placeAt(a ? a.cx : startPoint.x, a ? a.cz : startPoint.z, a && a.tz < 0 ? yaw + Math.PI : yaw, S.cruise * 0.6);
+  const sp = START_POINTS.find((q) => q.id === startId) || START;
+  // on the sea road, start on the deck; elsewhere on the nearest road
+  const kinds = sp.id === 'aqua' ? ['exp'] : ['art', 'rail'];
+  const a = nearestPath(sp.x, sp.z, kinds);
+  let yaw = a ? Math.atan2(a.tx, a.tz) : sp.yaw;
+  if (a && Math.cos(yaw - sp.yaw) < 0) yaw += Math.PI;
+  placeAt(a ? a.cx : sp.x, a ? a.cz : sp.z, yaw, S.cruise * 0.6);
+  if (a && a.p.kind === 'exp') { P.pos.y = expDeckAt(a) + HOVER + 0.5; }
 }
 // a random road somewhere in the city: an arterial, away from water and the edges
 function randomRoad() {

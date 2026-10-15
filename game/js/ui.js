@@ -130,6 +130,12 @@ function drawMapBase() {
   }
   g.fillStyle = '#d9472b';
   for (const L of LANDMARKS) { g.beginPath(); g.arc(mx(L.x), mz(L.z), 3, 0, TAU); g.fill(); }
+  // Start point markers
+  g.fillStyle = '#d9472b';
+  for (const sp of window.__uk?.START_POINTS || []) {
+    g.beginPath(); g.arc(mx(sp.x), mz(sp.z), 4, 0, TAU); g.fill();
+    g.strokeStyle = '#efe3c8'; g.lineWidth = 1; g.stroke();
+  }
   g.font = `400 13px ${FONT_BRUSH}`; g.fillStyle = '#23466e'; g.fillText('東京湾', mx(1500), mz(8000));
   g.strokeStyle = '#1d1b20'; g.lineWidth = 3; g.strokeRect(1.5, 1.5, MW - 3, MH - 3);
   // the title slip
@@ -171,11 +177,13 @@ function showOver(cause) {
 }
 $('#overRetry').addEventListener('click', () => { $('#overSheet').hidden = true; paused = false; revive(); const r = roadNear(P.pos.x, P.pos.z, P.pos.y, P.yaw); if (r) placeAt(r.cx, r.cz, P.yaw, S.cruise * 0.5); });
 $('#overHome').addEventListener('click', () => { $('#overSheet').hidden = true; paused = false; revive(); placeStart(); });
-function begin(random) {
+function begin(random, startId = null) {
   sfx.resume();
   $('#startSheet').hidden = true; $('#hud').hidden = false; $('#btnMenu').hidden = false;
   started = true;
-  if (random) { const r = randomRoad(); placeAt(r.x, r.z, r.yaw, S.cruise); } else placeStart();
+  if (startId) {
+    placeStart(startId);
+  } else if (random) { const r = randomRoad(); placeAt(r.x, r.z, r.yaw, S.cruise); } else placeStart();
   sfx.hyoshigi();
   const hint = $('#hint'); hint.hidden = false;
   hint.innerHTML = isTouch ? 'なぞって曲がる ／ 指を止めて長押しで構え ／ 鼓の「ポン」で離して一閃' : '矢印で走る ／ スペース長押しで構え ／ 鼓の「ポン」で離して一閃';
@@ -184,3 +192,7 @@ function begin(random) {
 }
 $('#btnGo').addEventListener('click', () => begin(false));
 $('#btnRandom').addEventListener('click', () => begin(true));
+// Start point selector
+let selectedStartPoint = null;
+$('#startPointSelect').addEventListener('change', (e) => { selectedStartPoint = e.target.value; });
+$('#btnGo').addEventListener('click', () => begin(false, selectedStartPoint));

@@ -116,4 +116,4 @@ applyLens();
 placeStart();
 updateMood(0);
 requestAnimationFrame(frame);
-window.__uk = { P, IAI, ijins, forms, bullets, ground, site, nearestPath, roadNear, PATHS, TOWERS, chunks, spawnIjin, placeIjin, spawnFormation, fwd, get simT() { return simT; }, placeAt, placeStart, updateChunks, U, inp, camera, get started() { return started; }, renderer, scene, post, setMood: (k) => { moodFix = k; moodPhase = k; } };
+window.__uk = { P, IAI, ijins, forms, bullets, ground, site, nearestPath, roadNear, PATHS, TOWERS, chunks, spawnIjin, placeIjin, spawnFormation, fwd, get simT() { return simT; }, placeAt, placeStart, updateChunks, U, inp, camera, get started() { return started; }, renderer, scene, post, setMood: (k) => { moodFix = k; moodPhase = k; }, START_POINTS, getStartPoint };

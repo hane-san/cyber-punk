@@ -116,6 +116,27 @@ h2 { margin: 0; font-family: var(--font-brush); font-weight: 400; font-size: 30p
 
 #stamp .seal.combo { background: linear-gradient(135deg, var(--kin), var(--shu)); font-size: 15px; padding: 8px 4px; border: 2px solid var(--sumi); }
 #stamp .seal.combo.perfect { background: linear-gradient(135deg, #ffd700, var(--shu)); color: var(--sumi); text-shadow: 0 0 3px var(--paper); }
+
+/* Start point markers on the map */
+.startPointMarker {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--shu);
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 10;
+}
+.startPointMarker:hover {
+  background: var(--kin);
+  transform: translate(-50%, -50%) scale(1.2);
+}
+.startPointMarker.selected {
+  background: var(--kin);
+  box-shadow: 0 0 0 3px var(--shu);
+}
 </style>
 
 <div id="app"></div>
@@ -150,7 +171,18 @@ h2 { margin: 0; font-family: var(--font-brush); font-weight: 400; font-size: 30p
       <b>一閃</b><span>朱の輪が閉じて金に変わり、鼓が「ポン」と鳴る一瞬に指を離せば、すれ違いざまに斬る。早ければ弾かれ、遅ければ斬られる。</span>
       <b>躱す</b><span>能面の弾幕は花・五芒・渦・格子の形で迫る。形を読んで隙間へ滑り込む。首都高の下は空から撃たれない。</span>
     </div>
-    <div class="row"><button class="go" id="btnGo" type="button">日本橋から発つ</button><button class="ghost" id="btnRandom" type="button">どこかの道から</button></div>
+    <div class="row"><button class="go" id="btnGo" type="button">日本橋から発つ</button><button class="ghost" id="btnRandom" type="button">どこかの道から</button>
+<div class="row" style="margin-top: 8px;">
+  <span class="label">スタート地点:</span>
+  <select id="startPointSelect" style="font-family: inherit; font-size: 13px; padding: 6px 10px; border: 1.5px solid var(--sumi); background: var(--sheet); color: var(--sumi);">
+    <option value="nihonbashi">日本橋</option>
+    <option value="toyosu">豊洲</option>
+    <option value="odaiba">お台場</option>
+    <option value="shinagawa">品川</option>
+    <option value="shibuya">渋谷</option>
+  </select>
+</div>
+</div>
     <span class="label">縦画面推奨・音が出ます・キーボードは矢印とスペース</span>
   </div>
 </section>

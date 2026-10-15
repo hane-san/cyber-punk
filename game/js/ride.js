@@ -14,7 +14,14 @@ const fwd = new V3(0, 0, 1), fPl = new V3(), side = new V3(), tmp = new V3(), tm
 const inp = { jx: 0, jy: 0, kx: 0, ky: 0, kamaeHeld: false, keys: {} };
 let shake = 0, dashPunch = 0, landSquash = 0, simT = 0, steerSm = 0;
 
-const START = { x: 1950, z: 160, yaw: 0 }; // Nihonbashi, facing south down the Ginza main street
+const START_POINTS = [
+  { id: 'nihonbashi', name: '\u65e5\u672c\u6a4b', x: 1950, z: 160, yaw: 0, desc: '\u65e5\u672c\u6a4b\u3001\u9752\u5c71\u901a\u304a\u306b\u5411\u304b\u3063\u3066' },
+  { id: 'toyosu', name: '\u8c4a\u6d32', x: -4600, z: 2800, yaw: Math.PI - 0.58, desc: '\u8c4a\u6d32\u5cf6\u306e\u901a\u308a\u306b' },
+  { id: 'odaiba', name: '\u304a\u53f0\u5834', x: 2150, z: 6150, yaw: 0.9, desc: '\u6d77\u5cb8\u901a\u304a\u306b' },
+  { id: 'shinagawa', name: '\u54c1\u5ddd', x: -1200, z: 5900, yaw: Math.PI + 0.3, desc: '\u7b2c\u4e00\u4eac\u6d5c\u901a\u306b' },
+  { id: 'shibuya', name: '\u6e0b\u8c37', x: 1940, z: 100, yaw: Math.PI/2 + 0.3, desc: '\u4e2d\u592e\u901a\u3042\u306b' },
+];
+const START = START_POINTS[0]; // Default: Nihonbashi, facing south down the Ginza main street
 function placeAt(x, z, yaw, speed) {
   const g = ground(x, z, Infinity);
   P.pos.set(x, g.h + HOVER + 0.4, z); P.yaw = yaw; P.grounded = false; P.air = 0.01; P.n.copy(g.n);
@@ -22,10 +29,15 @@ function placeAt(x, z, yaw, speed) {
   P.lean = P.leanV = P.sway = P.hold = 0; P.stagger = 0;
   if (typeof onPlaced === 'function') onPlaced();
 }
-function placeStart() {
-  const a = nearestPath(START.x, START.z, ['art']);
-  const yaw = a ? Math.atan2(a.tx, a.tz) : 0;
-  placeAt(a ? a.cx : START.x, a ? a.cz : START.z, a && a.tz < 0 ? yaw + Math.PI : yaw, S.cruise * 0.6);
+function placeStart(startId = null) {
+  let startPoint = START;
+  if (startId !== null && startId !== undefined) {
+    const found = START_POINTS.find(sp => sp.id === startId);
+    if (found) startPoint = found;
+  }
+  const a = nearestPath(startPoint.x, startPoint.z, ['art']);
+  const yaw = a ? Math.atan2(a.tx, a.tz) : startPoint.yaw;
+  placeAt(a ? a.cx : startPoint.x, a ? a.cz : startPoint.z, a && a.tz < 0 ? yaw + Math.PI : yaw, S.cruise * 0.6);
 }
 // a random road somewhere in the city: an arterial, away from water and the edges
 function randomRoad() {
@@ -36,6 +48,11 @@ function randomRoad() {
     return { x: q.x, z: q.z, yaw: Math.atan2(q.tx, q.tz) + (Math.random() < 0.5 ? Math.PI : 0) };
   }
   return { x: START.x, z: START.z, yaw: 0 };
+}
+// Select a specific start point by id
+function getStartPoint(startId) {
+  const found = START_POINTS.find(sp => sp.id === startId);
+  return found || START;
 }
 
 function stepPhysics(dt) {

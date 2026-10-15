@@ -137,14 +137,14 @@ function spawnFormation(kind, mode) {
 function updateFormations(dt) {
   const speed = Math.hypot(P.vel.x, P.vel.z);
   formT -= dt; assaultCD -= dt; chaseCD -= dt;
-  if (formT <= 0 && forms.length < 6) {
-    formT = 4 + Math.random() * 5;
-    spawnFormation(Math.random() < 0.6 ? 'crane' : 'kitsune', 'pass');
+  if (formT <= 0 && forms.length < 8) {
+    formT = 2.5 + Math.random() * 4;
+    spawnFormation(Math.random() < 0.5 ? 'crane' : 'kitsune', 'pass');
   }
   if (threatOn && started && !P.dead) {
-    if (assaultCD <= 0 && !forms.some((f) => f.mode === 'assault')) { assaultCD = 13 + Math.random() * 10 - (speed > 50 ? 4 : 0); spawnFormation('mask', 'assault'); }
+    if (assaultCD <= 0 && !forms.some((f) => f.mode === 'assault')) { assaultCD = 8 + Math.random() * 8 - (speed > 50 ? 4 : 0); spawnFormation('mask', 'assault'); }
     // slow riders are hunted from behind
-    if (chaseCD <= 0 && !forms.some((f) => f.mode === 'chase')) { chaseCD = speed < 18 ? 8 : 24 + Math.random() * 14; spawnFormation('mask', 'chase'); }
+    if (chaseCD <= 0 && !forms.some((f) => f.mode === 'chase')) { chaseCD = speed < 18 ? 6 : 16 + Math.random() * 10; spawnFormation('mask', 'chase'); }
   }
   const h = speed > 3 ? _v.set(P.vel.x, 0, P.vel.z).normalize() : _v.copy(fwd);
   for (const f of forms) {
@@ -152,17 +152,17 @@ function updateFormations(dt) {
     if (f.mode === 'pass') f.pos.addScaledVector(f.vel, dt);
     else if (f.mode === 'chase') {
       tmp.copy(P.pos).addScaledVector(h, -60); tmp.y = P.pos.y + 24;
-      tmp2.subVectors(tmp, f.pos); const d = tmp2.length(); tmp2.normalize().multiplyScalar(Math.min(DRONE_MAX, d * 1.2));
-      f.vel.lerp(tmp2, 1 - Math.exp(-1.5 * dt)); f.pos.addScaledVector(f.vel, dt);
+      tmp2.subVectors(tmp, f.pos); const d = tmp2.length(); tmp2.normalize().multiplyScalar(Math.min(DRONE_MAX, d * 1.5));
+      f.vel.lerp(tmp2, 1 - Math.exp(-2.0 * dt)); f.pos.addScaledVector(f.vel, dt);
       f.fireT -= dt;
-      if (f.fireT <= 0 && f.t < f.life - 3 && f.pos.distanceTo(P.pos) < 240) { f.fireT = 1.5; volley(f); }
+      if (f.fireT <= 0 && f.t < f.life - 2 && f.pos.distanceTo(P.pos) < 280) { f.fireT = 1.2; volley(f); }
     } else {
-      const hold = f.t < f.life - 4;
+      const hold = f.t < f.life - 3;
       tmp.copy(P.pos).addScaledVector(h, hold ? 175 : 400); tmp.y = P.pos.y + (hold ? 20 + Math.sin(f.t * 0.8) * 4 : 160);
       tmp.addScaledVector(_v.set(-h.z, 0, h.x), Math.sin(f.t * 0.5) * 18);
-      f.pos.lerp(tmp, 1 - Math.exp(-(f.t < 3 ? 0.9 : 2.2) * dt));
+      f.pos.lerp(tmp, 1 - Math.exp(-(f.t < 3 ? 0.9 : 2.8) * dt));
       f.fireT -= dt;
-      if (hold && f.t > 3 && f.fireT <= 0) { f.fireT = 1.15; pattern(f); f.pat = (f.pat + 1 + (Math.random() * 2 | 0)) % PATTERNS.length; }
+      if (hold && f.t > 2.5 && f.fireT <= 0) { f.fireT = 0.9; pattern(f); f.pat = (f.pat + 1 + (Math.random() * 2 | 0)) % PATTERNS.length; }
     }
     if (f.t > f.life || f.pos.distanceTo(P.pos) > 1600) f.done = true;
     // face the rider, lay the members out on the formation's plane
@@ -263,9 +263,9 @@ function makeIjin(R) {
   shadow.position.y = 0.08; g.add(shadow);
   return { g, head, mane, arm, ring, mark, mask, type };
 }
-const WINDUP = 0.95, WINDOW = 0.26, PERFECT = 0.11, ATK_R = 10.5, ATK_COOL = 1.6;
+const WINDUP = 0.95, WINDOW = 0.34, PERFECT = 0.16, ATK_R = 10.5, ATK_COOL = 1.6;
 const ijins = [];
-let ijinDist = 260;
+let ijinDist = 180;
 function spawnIjin() {
   const speed = Math.hypot(P.vel.x, P.vel.z); if (speed < 8) return;
   const h = _v.set(P.vel.x, 0, P.vel.z).normalize();
@@ -284,7 +284,7 @@ function placeIjin(x, z, y) {
   ijins.push(e); return e;
 }
 function updateIjins(dt) {
-  if (threatOn && started && !P.dead) { ijinDist -= Math.hypot(P.vel.x, P.vel.z) * dt; if (ijinDist <= 0 && ijins.filter((e) => e.alive).length < 4) { ijinDist = 240 + Math.random() * 260; spawnIjin(); } }
+  if (threatOn && started && !P.dead) { ijinDist -= Math.hypot(P.vel.x, P.vel.z) * dt; if (ijinDist <= 0 && ijins.filter((e) => e.alive).length < 8) { ijinDist = 120 + Math.random() * 180; spawnIjin(); } }
   for (const e of ijins) {
     e.t += dt;
     if (!e.alive) {
@@ -299,7 +299,7 @@ function updateIjins(dt) {
     if (e.state === 'idle') {
       // the figure reads your approach: when you will reach it within one wind-up, it begins
       const T = d / Math.max(closing, 1);
-      if (e.cool <= 0 && closing > 4 && d < 120 && Math.abs(dy) < 6 && T < WINDUP + 0.04) { e.state = 'windup'; e.wind = WINDUP; sfx.yoo(); }
+      if (e.cool <= 0 && closing > 4 && d < 150 && Math.abs(dy) < 7 && T < WINDUP + 0.08) { e.state = 'windup'; e.wind = WINDUP; sfx.yoo(); }
       e.mane.rotation.x = Math.sin(e.t * 1.4) * 0.1; e.arm.rotation.x = lerp(e.arm.rotation.x, 0, 1 - Math.exp(-4 * dt));
     } else if (e.state === 'windup') {
       e.wind -= dt; const u = 1 - e.wind / WINDUP;
@@ -315,7 +315,7 @@ function updateIjins(dt) {
     e.ring.visible = e.state === 'windup';
     if (e.ring.visible) { const u = e.wind / WINDUP, s = 2.2 + 9 * u; e.ring.scale.set(s, s, 1); const inW = e.wind <= WINDOW; e.ring.material.map = inW ? FX.ringG : FX.ring; e.ring.material.rotation += dt * 3; }
     e.mark.visible = e.locked; if (e.locked) { const s = 6 + Math.sin(e.t * 6) * 0.4; e.mark.scale.set(s, s, 1); e.mark.material.rotation -= dt * 1.5; }
-    if (d > 650 || (d > 260 && (dx * vx + dz * vz) > 0)) e.alive = false, e.deadT = 9;
+    if (d > 800 || (d > 320 && (dx * vx + dz * vz) > 0)) e.alive = false, e.deadT = 9;
   }
   for (let i = ijins.length - 1; i >= 0; i--) { const e = ijins[i]; if (!e.alive && e.deadT > 1.4) { scene.remove(e.g); ijins.splice(i, 1); } }
 }
@@ -324,7 +324,7 @@ function attackIjin(e, d, dy) {
   sfx.cut();
   // an ink crescent sweeps around the figure
   for (let k = 0; k < 18; k++) { const a = e.face - 1.6 + k / 17 * 3.2; fxAdd(FXN, 'ink', tmp.set(e.pos.x + Math.sin(a) * 7, e.pos.y + 1.4, e.pos.z + Math.cos(a) * 7), new V3(Math.sin(a) * 8, 1, Math.cos(a) * 8), 0.5, 2.2, 1, { drag: 3 }); }
-  if (d < ATK_R && Math.abs(dy) < 4 && !P.dead) {
+  if (d < ATK_R * 1.5 && Math.abs(dy) < 5 && !P.dead) {
     if (IAI.state === 'kamae') IAI.cancel(true);
     if (P.invuln <= 0) { hurt('薙刀'); const k = 16 / Math.max(d, 1); P.vel.x += (P.pos.x - e.pos.x) * k; P.vel.z += (P.pos.z - e.pos.z) * k; P.vel.multiplyScalar(0.55); P.stagger = 0.5; }
   }

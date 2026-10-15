@@ -74,10 +74,10 @@ const sfx = (() => {
     cut() { noise(0.25, 0.004, 0.25, 'highpass', 2000, 0.7, 0, 6000); },
     strike(perfect) {
       // shakin: steel, ringing partials; then the taiko under it
-      noise(0.45, 0.002, 0.18, 'highpass', 3500, 0.8);
-      for (const f of [2093, 3136, 4699]) tone(f, 'sine', perfect ? 0.08 : 0.05, 0.002, perfect ? 1.4 : 0.9, master);
-      tone(90, 'sine', 0.7, 0.003, 0.7, master, 0.45, 0.06); noise(0.35, 0.003, 0.4, 'lowpass', 300, 1, 0.06);
-      if (perfect) { tone(65, 'sine', 0.6, 0.003, 0.9, master, 0.5, 0.3); this.hyoshigi(0.55); }
+      noise(0.55, 0.002, 0.22, 'highpass', 3500, 0.8);
+      for (const f of [2093, 3136, 4699]) tone(f, 'sine', perfect ? 0.12 : 0.08, 0.002, perfect ? 1.8 : 1.2, master);
+      tone(90, 'sine', 0.85, 0.003, 0.9, master, 0.45, 0.06); noise(0.45, 0.003, 0.5, 'lowpass', 300, 1, 0.06);
+      if (perfect) { tone(65, 'sine', 0.8, 0.003, 1.2, master, 0.5, 0.3); this.hyoshigi(0.55); }
     },
     clang() { for (const f of [1250, 1870, 2610]) tone(f, 'square', 0.04, 0.002, 0.35); noise(0.2, 0.002, 0.1, 'bandpass', 3200, 3); },
     hurt() { tone(120, 'sawtooth', 0.25, 0.005, 0.35, lp, 0.4); noise(0.3, 0.005, 0.3, 'lowpass', 1200); },
@@ -90,14 +90,14 @@ const sfx = (() => {
     },
     // the blast: a crack, a sub-bass drop, a roaring body, crackling debris and a long rumble
     explode(perfect) {
-      if (!ac) return; const K = perfect ? 1.2 : 1;
-      noise(0.95 * K, 0.001, 0.07, 'highpass', 1800, 0.7);                          // the crack
-      tone(110, 'sine', 1.0 * K, 0.003, 0.75, master, 0.28);                         // the drop
-      tone(62, 'triangle', 0.7 * K, 0.004, 1.1, master, 0.5);                        // the weight under it
-      noise(0.85 * K, 0.004, 1.3, 'lowpass', 2200, 0.8, 0, 160);                      // the roar, darkening
-      noise(0.5 * K, 0.02, 2.6, 'lowpass', 140, 0.7, 0.05);                           // the rumble
-      for (let i = 0; i < (perfect ? 18 : 12); i++) { const d = 0.08 + Math.pow(Math.random(), 1.6) * 0.9; noise(0.2 + Math.random() * 0.2, 0.001, 0.03 + Math.random() * 0.04, 'bandpass', 2500 + Math.random() * 3500, 3, d); }
-      if (perfect) { tone(55, 'sine', 0.7, 0.003, 1.3, master, 0.6, 0.18); this.hyoshigi(0.7); }
+      if (!ac) return; const K = perfect ? 1.3 : 1;
+      noise(1.1 * K, 0.001, 0.09, 'highpass', 1800, 0.7);                          // the crack
+      tone(110, 'sine', 1.2 * K, 0.003, 0.9, master, 0.28);                         // the drop
+      tone(62, 'triangle', 0.9 * K, 0.004, 1.3, master, 0.5);                        // the weight under it
+      noise(1.0 * K, 0.004, 1.5, 'lowpass', 2200, 0.8, 0, 160);                      // the roar, darkening
+      noise(0.6 * K, 0.02, 3.0, 'lowpass', 140, 0.7, 0.05);                           // the rumble
+      for (let i = 0; i < (perfect ? 24 : 16); i++) { const d = 0.08 + Math.pow(Math.random(), 1.6) * 0.9; noise(0.25 + Math.random() * 0.2, 0.001, 0.03 + Math.random() * 0.04, 'bandpass', 2500 + Math.random() * 3500, 3, d); }
+      if (perfect) { tone(55, 'sine', 0.85, 0.003, 1.5, master, 0.6, 0.18); this.hyoshigi(0.7); }
     },
     // tsuke-uchi: wooden clappers struck on a board — battabatta... battari — for the mie
     tsuke(perfect) {

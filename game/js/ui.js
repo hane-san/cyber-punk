@@ -15,7 +15,15 @@ function kanjiNum(n) {
 function stamp(text, perfect, combo) {
   const el = $('#stamp'), ch = $('#stampCh');
   ch.textContent = text; ch.classList.toggle('long', text.length > 1);
-  $('#stampSeal').textContent = combo > 1 ? `${kanjiNum(combo)}連` : perfect ? '見事' : '御免';
+  const sealEl = $('#stampSeal');
+  if (combo > 1) {
+    sealEl.textContent = `${kanjiNum(combo)}連`;
+    sealEl.classList.add('combo');
+    sealEl.classList.toggle('perfect', perfect);
+  } else {
+    sealEl.textContent = perfect ? '見事' : '御免';
+    sealEl.classList.remove('combo', 'perfect');
+  }
   el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
 }
 

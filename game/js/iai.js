@@ -4,7 +4,7 @@
 // up; its brush ring closes and turns gold, and a tsuzumi sounds (ポン). Let go inside that last instant and the cut
 // lands as you pass: hit-stop in a kabuki frame, the screen cut in two, and the board flies on. Let go early and the blade is
 // turned aside (弾かれ); hold too long and the naginata comes down on you.
-const KAMAE_V = 34, REACH = 22, HITSTOP = 0.3, HITSTOP_P = 0.42, PASS_OFF = 2.8, CLOSE_OFF = 2.1, CLOSE_T = 0.075, BOOM_DELAY = 0.12;
+const KAMAE_V = 34, REACH = 28, HITSTOP = 0.38, HITSTOP_P = 0.48, PASS_OFF = 2.8, CLOSE_OFF = 2.1, CLOSE_T = 0.075, BOOM_DELAY = 0.12;
 const IAI = {
   state: 'none', target: null, t: 0, timeScale: 1, freeze: 0, freeze0: 0, slow: 0, dashFrom: new V3(), dashTo: new V3(), dashT: -1,
   mie: 0, mieYaw: 0, mieDist: 9, mieC: new V3(), phase: '', phaseT: 0, cutE: null, perfect: false, closeFrom: new V3(), closeTo: new V3(), swingP: 0, boomT: -1, lastResult: '', combo: 0, comboT: 0, near: 0, side: 1, split: 0, slashK: 0,
@@ -92,9 +92,9 @@ const IAI = {
   boom() {
     const e = this.cutE; if (!e) return; this.phase = 'boom'; setTimeout(() => { if (this.phase === 'boom') this.phase = ''; }, 550);
     explodeIjin(e, this.perfect); this.cutE = null;
-    sfx.explode(this.perfect); shake = Math.max(shake, this.perfect ? 1.6 : 1.2); dashPunch = 1;
-    post.uniforms.uFlash.value.setRGB(1, 0.86, 0.62); this.flash = this.perfect ? 0.55 : 0.4;
-    buzz(this.perfect ? [60, 30, 140] : [50, 30, 100]);
+    sfx.explode(this.perfect); shake = Math.max(shake, this.perfect ? 2.2 : 1.6); dashPunch = 1.3;
+    post.uniforms.uFlash.value.setRGB(1, 0.82, 0.55); this.flash = this.perfect ? 0.75 : 0.55;
+    buzz(this.perfect ? [80, 40, 180] : [60, 40, 120]);
   },
   parried(e) {
     // the figure turns the blade aside: a ring of iron, sparks, and you are thrown off the line

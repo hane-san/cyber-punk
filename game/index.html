@@ -113,6 +113,9 @@ h2 { margin: 0; font-family: var(--font-brush); font-weight: 400; font-size: 30p
 @keyframes makuT { 0% { transform: scaleY(0); background-position: 0 0; } 14% { transform: scaleY(1); } 70% { transform: scaleY(1); background-position: -42vw 0; } 100% { transform: scaleY(0); background-position: -60vw 0; } }
 @media (prefers-reduced-motion: reduce) { #maku.on i { animation-duration: 0.01s; } }
 @media (prefers-reduced-motion: reduce) { #stamp.on { animation-duration: 0.01s; } #cart, #toast, #hint { transition: none; } }
+
+#stamp .seal.combo { background: linear-gradient(135deg, var(--kin), var(--shu)); font-size: 15px; padding: 8px 4px; border: 2px solid var(--sumi); }
+#stamp .seal.combo.perfect { background: linear-gradient(135deg, #ffd700, var(--shu)); color: var(--sumi); text-shadow: 0 0 3px var(--paper); }
 </style>
 
 <div id="app"></div>

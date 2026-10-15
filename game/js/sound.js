@@ -8,8 +8,10 @@ const sfx = (() => {
   function init() {
     if (ac) return;
     try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    // everything goes through a compressor, so a blast can hit hard without clipping
     master = ac.createGain(); master.gain.value = on ? 0.8 : 0;
-    lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 18000; lp.connect(master); master.connect(ac.destination);
+    const comp = ac.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 8; comp.ratio.value = 5; comp.attack.value = 0.002; comp.release.value = 0.22;
+    lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 18000; lp.connect(master); master.connect(comp); comp.connect(ac.destination);
     hum = ac.createOscillator(); hum.type = 'sawtooth'; hum.frequency.value = 60; humF = ac.createBiquadFilter(); humF.type = 'lowpass'; humF.frequency.value = 400;
     humG = ac.createGain(); humG.gain.value = 0; hum.connect(humF); humF.connect(humG); humG.connect(lp); hum.start();
     const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -81,6 +83,22 @@ const sfx = (() => {
     hurt() { tone(120, 'sawtooth', 0.25, 0.005, 0.35, lp, 0.4); noise(0.3, 0.005, 0.3, 'lowpass', 1200); },
     kamae(onK) { if (onK) { noise(0.08, 0.002, 0.06, 'bandpass', 3000, 4); tone(1600, 'sine', 0.03, 0.002, 0.15); } },
     noto() { noise(0.1, 0.002, 0.05, 'bandpass', 2600, 5); noise(0.08, 0.002, 0.05, 'bandpass', 2000, 5, 0.09); },
+    // the draw: a fast rising steel hiss that ends in a ring
+    draw() {
+      noise(0.35, 0.004, 0.09, 'bandpass', 2500, 2, 0, 9000);
+      for (const f of [3520, 5274]) tone(f, 'sine', 0.06, 0.002, 0.45, master, 1, 0.07);
+    },
+    // the blast: a crack, a sub-bass drop, a roaring body, crackling debris and a long rumble
+    explode(perfect) {
+      if (!ac) return; const K = perfect ? 1.2 : 1;
+      noise(0.95 * K, 0.001, 0.07, 'highpass', 1800, 0.7);                          // the crack
+      tone(110, 'sine', 1.0 * K, 0.003, 0.75, master, 0.28);                         // the drop
+      tone(62, 'triangle', 0.7 * K, 0.004, 1.1, master, 0.5);                        // the weight under it
+      noise(0.85 * K, 0.004, 1.3, 'lowpass', 2200, 0.8, 0, 160);                      // the roar, darkening
+      noise(0.5 * K, 0.02, 2.6, 'lowpass', 140, 0.7, 0.05);                           // the rumble
+      for (let i = 0; i < (perfect ? 18 : 12); i++) { const d = 0.08 + Math.pow(Math.random(), 1.6) * 0.9; noise(0.2 + Math.random() * 0.2, 0.001, 0.03 + Math.random() * 0.04, 'bandpass', 2500 + Math.random() * 3500, 3, d); }
+      if (perfect) { tone(55, 'sine', 0.7, 0.003, 1.3, master, 0.6, 0.18); this.hyoshigi(0.7); }
+    },
     // tsuke-uchi: wooden clappers struck on a board — battabatta... battari — for the mie
     tsuke(perfect) {
       const hits = perfect ? [0, 0.05, 0.1, 0.15, 0.2, 0.36] : [0, 0.06, 0.12, 0.28];

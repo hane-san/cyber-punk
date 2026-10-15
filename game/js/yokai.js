@@ -289,10 +289,6 @@ function updateIjins(dt) {
     e.t += dt;
     if (!e.alive) {
       e.deadT += dt;
-      if (e.fall) { // a kabuki fall: the cut figure goes over backwards, then is gone in a breath of sumi
-        e.g.rotation.x = -1.45 * smooth(0.05, 0.9, e.deadT); e.g.position.y = e.pos.y - 0.6 * smooth(0.5, 1.0, e.deadT);
-        if (e.deadT > 1.0 && e.g.visible) { e.g.visible = false; fxInk(tmp.copy(e.pos).setY(e.pos.y + 0.8), 16, 5); }
-      }
       continue;
     }
     const dx = P.pos.x - e.pos.x, dz = P.pos.z - e.pos.z, d = Math.hypot(dx, dz), dy = P.pos.y - (e.pos.y + HOVER);
@@ -333,23 +329,59 @@ function attackIjin(e, d, dy) {
     if (P.invuln <= 0) { hurt('薙刀'); const k = 16 / Math.max(d, 1); P.vel.x += (P.pos.x - e.pos.x) * k; P.vel.z += (P.pos.z - e.pos.z) * k; P.vel.multiplyScalar(0.55); P.stagger = 0.5; }
   }
 }
-function killIjin(e, perfect) {
-  e.alive = false; e.deadT = 0; e.ring.visible = false; e.mark.visible = false; e.locked = false;
-  // the mask splits and falls; the body goes up in sumi
+// the cut lands: the figure stops dead where it stands (its body stays for the hit-stop)
+function cutIjin(e) {
+  e.alive = false; e.deadT = 0; e.ring.visible = false; e.mark.visible = false; e.locked = false; e.cut = true;
+  e.arm.rotation.x = -0.6; e.mane.rotation.x = 0.4;
+}
+// a beat later it blows apart behind you: flash, fireball, shockwave, debris and smoke, the mask split in two
+function explodeIjin(e, perfect) {
+  const c = new V3(e.pos.x, e.pos.y + 2.0, e.pos.z), K = perfect ? 1.35 : 1;
   const wp = new V3(); e.mask.getWorldPosition(wp);
   for (const sd of [-1, 1]) {
-    const half = makeMask(e.type, 0.42); half.position.copy(wp); scene.add(half);
-    const v = new V3(sd * 5 + P.vel.x * 0.15, 7, P.vel.z * 0.15 + (Math.random() - 0.5) * 3);
-    falling.push({ o: half, v, rv: new V3((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9, sd * 6), t: 0 });
+    const half = makeMask(e.type, 0.42 * 1.35); half.position.copy(wp); scene.add(half);
+    const v = new V3(sd * 9 + (Math.random() - 0.5) * 4, 14, (Math.random() - 0.5) * 8);
+    falling.push({ o: half, v, rv: new V3((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, sd * 10), t: 0 });
     half.children[0].scale.x = 0.5; half.children[0].position.x = sd * 0.21;
   }
-  e.mask.visible = false; e.fall = true; e.g.rotation.order = 'YXZ';
-  const c = tmp.copy(e.pos); c.y += 1.6;
-  fxInk(c, perfect ? 34 : 22, 9);
-  for (let k = 0; k < 8; k++) fxAdd(FXN, 'wave', c, new V3((Math.random() - 0.5) * 22, 6 + Math.random() * 8, (Math.random() - 0.5) * 22), 1.1, 2.2, 4.2, { grav: 10, rv: (Math.random() - 0.5) * 4 });
-  const petal = U.uNight.value > 0.6 || (moodPhase > 2.5 && moodPhase < 3.5) ? 'petal' : 'maple';
-  for (let k = 0; k < (perfect ? 60 : 36); k++) fxAdd(FXN, Math.random() < 0.75 ? petal : 'petal', c, new V3((Math.random() - 0.5) * 26, 2 + Math.random() * 12, (Math.random() - 0.5) * 26), 2.6 + Math.random() * 1.5, 0.7, 0.7, { grav: 2.2, drag: 1.4, rv: (Math.random() - 0.5) * 8, sway: 6 });
-  for (let k = 0; k < 12; k++) fxAdd(FXA, 'soul', c, new V3((Math.random() - 0.5) * 6, 3 + Math.random() * 6, (Math.random() - 0.5) * 6), 1.2, 2, 0.4, { tint: [0.8, 0.95, 1] });
+  e.g.visible = false; e.cut = false;
+  fxExplode(c, K);
+  const petal = moodPhase < 1.5 || moodPhase > 4.5 ? 'maple' : 'petal';
+  for (let k = 0; k < (perfect ? 50 : 30); k++) fxAdd(FXN, petal, c, new V3((Math.random() - 0.5) * 30, 3 + Math.random() * 14, (Math.random() - 0.5) * 30), 2.8 + Math.random() * 1.5, 0.7, 0.7, { grav: 2.2, drag: 1.4, rv: (Math.random() - 0.5) * 8, sway: 6 });
+}
+// the explosion itself, built from the two particle systems and two short-lived meshes
+const boomRingGeo = new THREE.RingGeometry(0.85, 1, 64).rotateX(-Math.PI / 2), booms = [];
+function fxExplode(c, K = 1) {
+  // a white-hot flash, then a fireball of orange and vermilion, rolling out and up
+  fxAdd(FXA, 'dot', c, null, 0.16, 7 * K, 18 * K, { tint: [0.9, 0.62, 0.35] });
+  fxAdd(FXN, 'dot', c, null, 0.3, 5 * K, 13 * K, { tint: [1, 0.82, 0.5] });
+  for (let k = 0; k < 46; k++) {
+    const d = new V3(Math.random() - 0.5, Math.random() * 0.8 - 0.15, Math.random() - 0.5).normalize(), sp = (14 + Math.random() * 26) * K;
+    const hot = Math.random();
+    fxAdd(FXN, 'dot', c, d.multiplyScalar(sp), 0.45 + Math.random() * 0.45, (2 + Math.random() * 2) * K, (5 + Math.random() * 5) * K, { drag: 3.2, grav: -3, tint: hot < 0.2 ? [1, 0.88, 0.5] : hot < 0.65 ? [0.98, 0.48, 0.18] : [0.8, 0.2, 0.14] });
+  }
+  for (let k = 0; k < 30; k++) { const d = new V3(Math.random() - 0.5, Math.random() * 0.7, Math.random() - 0.5).normalize(); fxAdd(FXA, 'dot', c, d.multiplyScalar((18 + Math.random() * 20) * K), 0.4, 2 * K, 4 * K, { drag: 3, tint: [0.7, 0.32, 0.12] }); }
+  // smoke that lingers, dark at the heart and pale at the edge
+  for (let k = 0; k < 22; k++) { const d = new V3(Math.random() - 0.5, Math.random() * 0.6 + 0.1, Math.random() - 0.5).normalize(); fxAdd(FXN, 'cloud', c, d.multiplyScalar((6 + Math.random() * 10) * K), 1.6 + Math.random() * 1.2, 3 * K, (10 + Math.random() * 6) * K, { drag: 1.6, grav: -2.5, a: 0.75, tint: Math.random() < 0.5 ? [0.32, 0.29, 0.31] : [0.58, 0.53, 0.52], fadeIn: 0.12 }); }
+  // debris, sparks like a firework, and ink
+  for (let k = 0; k < 40; k++) { const d = new V3(Math.random() - 0.5, Math.random() * 0.9 + 0.2, Math.random() - 0.5).normalize(); fxAdd(FXA, 'spark', c, d.multiplyScalar((22 + Math.random() * 30) * K), 0.7 + Math.random() * 0.8, 1.2, 0.3, { grav: 18, drag: 0.6 }); }
+  for (let k = 0; k < 18; k++) { const d = new V3(Math.random() - 0.5, Math.random() * 0.9 + 0.1, Math.random() - 0.5).normalize(); fxAdd(FXN, 'ink', c, d.multiplyScalar((12 + Math.random() * 18) * K), 0.9 + Math.random() * 0.6, 0.6 + Math.random() * 0.8, 0.4, { grav: 24, rv: (Math.random() - 0.5) * 10 }); }
+  // a shockwave along the ground, and a standing ring facing the camera
+  const gy = ground(c.x, c.z, c.y).h + 0.3;
+  const ring = new THREE.Mesh(boomRingGeo, new THREE.MeshBasicMaterial({ color: 0xffd8a8, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  ring.position.set(c.x, gy, c.z); scene.add(ring);
+  const ring2 = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 64), new THREE.MeshBasicMaterial({ color: 0xe8743a, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  ring2.position.copy(c); ring2.lookAt(camera.position); scene.add(ring2);
+  booms.push({ ring, ring2, t: 0, K });
+}
+function updateBooms(dt) {
+  for (let i = booms.length - 1; i >= 0; i--) {
+    const b = booms[i]; b.t += dt; const u = b.t / 0.6;
+    const r = (2 + 38 * (1 - Math.pow(1 - Math.min(u, 1), 3))) * b.K;
+    b.ring.scale.setScalar(r); b.ring.material.opacity = 0.9 * (1 - smooth(0.2, 1, u));
+    b.ring2.scale.setScalar(r * 0.55); b.ring2.material.opacity = 0.8 * (1 - smooth(0.1, 0.7, u)); b.ring2.lookAt(camera.position);
+    if (u > 1) { scene.remove(b.ring); scene.remove(b.ring2); b.ring2.geometry.dispose(); booms.splice(i, 1); }
+  }
 }
 const falling = [];
 // leaves and petals drifting through the empty city; at speed they rush past

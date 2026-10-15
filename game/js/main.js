@@ -71,7 +71,7 @@ function updateRider(dt) {
   RIG.rider.rotation.z = lerp(RIG.rider.rotation.z, -lean * 0.25 + kamaeK * 0.12, 1 - Math.exp(-5 * dt));
   RIG.rider.rotation.y = lerp(RIG.rider.rotation.y, -clamp(lean, -1, 1) * 0.2, 1 - Math.exp(-3 * dt));
   // the right hand goes to the hilt in the stance; after the cut it is out wide with the blade
-  const cut = RIG.blade.visible ? 1 : 0;
+  const cut = swing.visible ? 1 : 0;
   RIG.armR.rotation.x = lerp(RIG.armR.rotation.x, cut ? -1.9 : kamaeK * 0.9, 1 - Math.exp(-(cut ? 30 : 10) * dt));
   RIG.armR.rotation.z = lerp(RIG.armR.rotation.z, cut ? -1.2 : kamaeK * -0.5, 1 - Math.exp(-(cut ? 30 : 10) * dt));
   RIG.armL.rotation.x = lerp(RIG.armL.rotation.x, 0.25 + kamaeK * 0.5, 1 - Math.exp(-8 * dt));
@@ -93,7 +93,7 @@ function frame(now) {
       for (let i = 0; i < sub; i++) stepPhysics(dt / sub);
     }
     updateChunks(false, P.pos.x, P.pos.z);
-    updateFormations(dt); updateBullets(dt); updateIjins(dt); updateFalling(dt); updateLeaves(dt); updateSlashes(dtReal);
+    updateFormations(dt); updateBullets(dt); updateIjins(dt); updateFalling(dt); updateLeaves(dt); updateSlashes(dtReal); updateBooms(dt);
     updateHud(); updateCartouche(dtReal);
     sfx.update(Math.hypot(P.vel.x, P.vel.z), IAI.state === 'kamae', IAI.slow > 0);
     U.uTime.value += dt;

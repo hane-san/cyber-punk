@@ -73,11 +73,13 @@ const sfx = (() => {
     pon() { tone(520, 'sine', 0.35, 0.002, 0.22, master, 0.55); noise(0.12, 0.001, 0.04, 'bandpass', 2400, 2); },
     cut() { noise(0.25, 0.004, 0.25, 'highpass', 2000, 0.7, 0, 6000); },
     strike(perfect) {
-      // shakin: steel, ringing partials; then the taiko under it
-      noise(0.55, 0.002, 0.22, 'highpass', 3500, 0.8);
-      for (const f of [2093, 3136, 4699]) tone(f, 'sine', perfect ? 0.12 : 0.08, 0.002, perfect ? 1.8 : 1.2, master);
-      tone(90, 'sine', 0.85, 0.003, 0.9, master, 0.45, 0.06); noise(0.45, 0.003, 0.5, 'lowpass', 300, 1, 0.06);
-      if (perfect) { tone(65, 'sine', 0.8, 0.003, 1.2, master, 0.5, 0.3); this.hyoshigi(0.55); }
+      // heavier steel + deeper taiko body
+      noise(0.6, 0.002, 0.28, 'highpass', 2800, 0.7);
+      for (const f of [2093, 3136, 4699]) tone(f, 'sine', perfect ? 0.14 : 0.1, 0.002, perfect ? 2.0 : 1.4, master);
+      tone(75, 'sine', 1.05, 0.004, 1.15, master, 0.38, 0.05);   // deeper drop
+      noise(0.55, 0.004, 0.7, 'lowpass', 240, 1, 0.05);
+      tone(48, 'triangle', 0.7, 0.006, 1.4, master, 0.45, 0.08); // sub weight
+      if (perfect) { tone(55, 'sine', 0.95, 0.004, 1.5, master, 0.42, 0.25); this.hyoshigi(0.55); }
     },
     clang() { for (const f of [1250, 1870, 2610]) tone(f, 'square', 0.04, 0.002, 0.35); noise(0.2, 0.002, 0.1, 'bandpass', 3200, 3); },
     hurt() { tone(120, 'sawtooth', 0.25, 0.005, 0.35, lp, 0.4); noise(0.3, 0.005, 0.3, 'lowpass', 1200); },
@@ -90,14 +92,14 @@ const sfx = (() => {
     },
     // the blast: a crack, a sub-bass drop, a roaring body, crackling debris and a long rumble
     explode(perfect) {
-      if (!ac) return; const K = perfect ? 1.3 : 1;
-      noise(1.1 * K, 0.001, 0.09, 'highpass', 1800, 0.7);                          // the crack
-      tone(110, 'sine', 1.2 * K, 0.003, 0.9, master, 0.28);                         // the drop
-      tone(62, 'triangle', 0.9 * K, 0.004, 1.3, master, 0.5);                        // the weight under it
-      noise(1.0 * K, 0.004, 1.5, 'lowpass', 2200, 0.8, 0, 160);                      // the roar, darkening
-      noise(0.6 * K, 0.02, 3.0, 'lowpass', 140, 0.7, 0.05);                           // the rumble
-      for (let i = 0; i < (perfect ? 24 : 16); i++) { const d = 0.08 + Math.pow(Math.random(), 1.6) * 0.9; noise(0.25 + Math.random() * 0.2, 0.001, 0.03 + Math.random() * 0.04, 'bandpass', 2500 + Math.random() * 3500, 3, d); }
-      if (perfect) { tone(55, 'sine', 0.85, 0.003, 1.5, master, 0.6, 0.18); this.hyoshigi(0.7); }
+      if (!ac) return; const K = perfect ? 1.35 : 1.05;
+      noise(1.15 * K, 0.001, 0.1, 'highpass', 1600, 0.65);                         // the crack
+      tone(95, 'sine', 1.35 * K, 0.004, 1.05, master, 0.25);                        // deeper drop
+      tone(52, 'triangle', 1.05 * K, 0.005, 1.5, master, 0.42);                     // more weight
+      noise(1.1 * K, 0.005, 1.7, 'lowpass', 1800, 0.75, 0, 140);                    // the roar
+      noise(0.75 * K, 0.025, 3.4, 'lowpass', 110, 0.65, 0.04);                      // longer rumble
+      for (let i = 0; i < (perfect ? 26 : 18); i++) { const d = 0.08 + Math.pow(Math.random(), 1.6) * 0.9; noise(0.28 + Math.random() * 0.22, 0.001, 0.04 + Math.random() * 0.05, 'bandpass', 2200 + Math.random() * 3800, 3, d); }
+      if (perfect) { tone(48, 'sine', 1.0, 0.004, 1.7, master, 0.5, 0.15); this.hyoshigi(0.7); }
     },
     // a level crossing's bell, far or near
     fumikiri(k) { tone(740, 'square', 0.05 * k, 0.002, 0.16, lp); tone(1480, 'sine', 0.03 * k, 0.002, 0.12, lp); },

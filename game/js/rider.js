@@ -92,3 +92,31 @@ function satisfy(a, b, rest, pinA) {
   const p = capeP[a], q = capeP[b]; _tmpC.subVectors(q, p); const d = _tmpC.length() || 1e-6, f = (d - rest) / d;
   if (pinA) q.addScaledVector(_tmpC, -f); else { p.addScaledVector(_tmpC, f * 0.5); q.addScaledVector(_tmpC, -f * 0.5); }
 }
+
+// ---- the board's trail: a ribbon of asagi light that streams out behind at speed
+const TRAIL_N = 28, trailPts = [];
+const trailGeo2 = new THREE.BufferGeometry();
+{
+  const pos = new Float32Array(TRAIL_N * 2 * 3), a = new Float32Array(TRAIL_N * 2), idx = [];
+  for (let i = 0; i < TRAIL_N; i++) { a[i * 2] = a[i * 2 + 1] = 1 - i / (TRAIL_N - 1); trailPts.push(new V3()); }
+  for (let i = 0; i < TRAIL_N - 1; i++) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  trailGeo2.setAttribute('position', new THREE.BufferAttribute(pos, 3)); trailGeo2.setAttribute('aA', new THREE.BufferAttribute(a, 1)); trailGeo2.setIndex(idx);
+}
+const trailMat2 = new THREE.ShaderMaterial({
+  uniforms: { uK: { value: 0 }, uCol: { value: new THREE.Color(COL.asagi) } }, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+  vertexShader: 'attribute float aA; varying float vA; void main(){ vA = aA; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: 'uniform float uK; uniform vec3 uCol; varying float vA; void main(){ gl_FragColor = vec4(uCol * vA * vA * uK, 1.0); }',
+});
+const boardTrail = new THREE.Mesh(trailGeo2, trailMat2); boardTrail.frustumCulled = false; scene.add(boardTrail);
+let trailAcc = 0;
+function updateTrail(dt, speed) {
+  trailAcc += dt;
+  const head = tmp.set(0, -0.05, -0.9); boardPivot.localToWorld(head);
+  if (trailAcc > 0.016) { trailAcc = 0; for (let i = TRAIL_N - 1; i > 0; i--) trailPts[i].copy(trailPts[i - 1]); }
+  trailPts[0].copy(head);
+  const side = tmp2.set(Math.cos(P.yaw), 0, -Math.sin(P.yaw)).multiplyScalar(0.28), pa = trailGeo2.attributes.position.array;
+  for (let i = 0; i < TRAIL_N; i++) { const p = trailPts[i], w = 1 - i / TRAIL_N; pa[i * 6] = p.x + side.x * w; pa[i * 6 + 1] = p.y; pa[i * 6 + 2] = p.z + side.z * w; pa[i * 6 + 3] = p.x - side.x * w; pa[i * 6 + 4] = p.y; pa[i * 6 + 5] = p.z - side.z * w; }
+  trailGeo2.attributes.position.needsUpdate = true;
+  trailMat2.uniforms.uK.value = lerp(trailMat2.uniforms.uK.value, smooth(25, 80, speed) * 0.8 + dashPunch * 0.4, 1 - Math.exp(-6 * dt));
+}
+function resetTrail() { const head = new V3(0, -0.05, -0.9); boardPivot.localToWorld(head); for (const p of trailPts) p.copy(head); }

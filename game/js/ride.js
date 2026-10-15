@@ -234,6 +234,9 @@ function collide() {
     if (dx * dx + dz * dz > r * r * 2) continue;
     let lx = dx * c.c - dz * c.s, lz = dx * c.s + dz * c.c;
     if (P.pos.y >= c.top - 0.4 || P.pos.y < c.bottom) continue;
+    // a near miss: skimming past a pillar or a wall at speed is rewarded with a whoosh and a little flow
+    { const ox = Math.max(Math.abs(lx) - c.hw, 0), oz = Math.max(Math.abs(lz) - c.hd, 0), od = Math.hypot(ox, oz), hsp = Math.hypot(P.vel.x, P.vel.z);
+      if (od > 0 && od < 2.6 && hsp > 36 && (c.nm || 0) < simT && !P.dead) { c.nm = simT + 2.5; nearMiss(); } }
     const pad = 0.55, px = c.hw + pad - Math.abs(lx), pz = c.hd + pad - Math.abs(lz);
     if (px <= 0 || pz <= 0) continue;
     let nx, nz;
@@ -307,4 +310,5 @@ function landing(g) {
     fxDust(tmp.copy(P.pos).addScaledVector(UP, -HOVER), tmp2.copy(P.vel).multiplyScalar(0.5));
   }
 }
+function nearMiss() { P.flow = Math.min(1, P.flow + 0.04); dashPunch = Math.max(dashPunch, 0.35); sfx.whoosh(); }
 function buzz(p) { if (navigator.vibrate) try { navigator.vibrate(p); } catch (e) {} }

@@ -5,7 +5,7 @@ let camBaseY = 0, lookAng = 0, suspY = 0, suspV = 0, kamaeK = 0;
 function onPlaced() {
   updateChunks(true, P.pos.x, P.pos.z);
   camDir.copy(fwd); camBaseY = P.pos.y; camOff.set(-fwd.x * S.camDist, 4, -fwd.z * S.camDist); lookAng = 0;
-  updateRider(0); resetCape();
+  updateRider(0); resetCape(); resetTrail();
 }
 function updateCamera(dt) {
   const speed = P.vel.length(), sf = clamp(speed / S.maxSpeed, 0, 1), portrait = camera.aspect < 1;
@@ -37,8 +37,10 @@ function updateCamera(dt) {
   const mw = IAI.freeze > 0 ? 1 : smooth(0, 1, IAI.mie);
   if (mw > 0) {
     const C = IAI.mieC;
-    _mie.set(C.x + Math.sin(IAI.mieYaw) * IAI.mieDist * 0.7, C.y + 0.6, C.z + Math.cos(IAI.mieYaw) * IAI.mieDist * 0.7);
-    camPos.lerp(_mie, mw * 0.6); _look.copy(C); _look.y += 1.5; lookSm.lerp(_look, mw * 0.6);
+    // full framing while the frame is held (the mie), a gentler pull on the way back so the ride keeps flowing
+    const mk = IAI.freeze > 0 || IAI.phase === 'hold' ? 1 : 0.6;
+    _mie.set(C.x + Math.sin(IAI.mieYaw) * IAI.mieDist * 0.8, C.y + 0.8, C.z + Math.cos(IAI.mieYaw) * IAI.mieDist * 0.8);
+    camPos.lerp(_mie, mw * mk); _look.copy(C); _look.y += 1.6; lookSm.lerp(_look, mw * mk);
   }
   camera.position.copy(camPos);
   const rumble = sf * sf * 0.09 + shake;
@@ -78,6 +80,7 @@ function updateRider(dt) {
   RIG.glow.material.opacity = 0.35 + sf * 0.5;
   RIG.glow.scale.setScalar(1.8 + sf * 1.4);
   updateCape(dt, P.vel);
+  updateTrail(dt, speed);
 }
 let last = performance.now(), visT = 0, ambT = 12, fumiT = 0;
 function frame(now) {

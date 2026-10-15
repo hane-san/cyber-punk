@@ -147,6 +147,22 @@ The owner had Mistral (Vibe) tune the combat on `vibe/combat-enhancement-f57a0d`
 
 The start point coordinates and labels were corrected after the merge.
 
+## Grok's tuning (merged), and the step-in made real again
+
+The owner had Grok tune the cut directly on `main`, and those changes are kept:
+- The pass is continuous, with no position warp: a moderate pass speed, then 0.45 s of re-acceleration (+28 m/s, or +38 for 一閃) after the hit-stop.
+- The stance is slower and goes deeper into slow time (`KAMAE_V` 28, time 0.85 → 0.4).
+- The strike and the blast are heavier, with more sub-bass and a longer body.
+
+One side effect was fixed. Grok's step-in ran at 0.15× time, so the rider moved only about 0.5 m and the cut landed 7.4 m from the figure. The step-in is now a real lunge in real time: velocity is aimed at the figure's side every frame for `CLOSE_T` (0.12 s), with no warp, so the blade lands 2.9 m from the figure's centre. Then the board turns back onto the pass line.
+
+The mie camera frames fully while the frame is held, and pulls back at Mistral's gentler 60% on the way out.
+
+More for the feel:
+- **Light trail:** an asagi ribbon streams from the board, brighter with speed and on every punch.
+- **Near misses:** skimming within 2.6 m of a pillar or a wall at over 130 km/h gives a whoosh, a little flow and a punch, once per obstacle every 2.5 s.
+- **Re-acceleration:** a rush of wind when the board flies on after the cut.
+
 ## Known limitations
 
 - Start-up builds the district field and the global towers for the whole 72 × 62 km world: about 3 s in headless Chromium on a desktop CPU.

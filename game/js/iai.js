@@ -59,11 +59,14 @@ const IAI = {
     this.closeFrom.copy(P.pos);
     this.closeTo.set(e.pos.x + rx * this.side * CLOSE_OFF - h.x * 0.6, P.pos.y, e.pos.z + rz * this.side * CLOSE_OFF - h.z * 0.6);
     this.dashTo.set(e.pos.x + rx * this.side * CLOSE_OFF + h.x * 22, P.pos.y, e.pos.z + rz * this.side * CLOSE_OFF + h.z * 22);
-    P.yaw = Math.atan2(h.x, h.z); fwd.set(h.x, 0, h.z);
-    // continuous velocity: set a moderate pass speed rather than a hard snap
+    // the step in (踏み込み): a real lunge with velocity to the figure's side, no warp. The pass direction and
+    // speed are kept for when the blade is through.
     const currentSpeed = Math.hypot(P.vel.x, P.vel.z);
-    const sp = Math.max(currentSpeed * 0.7, KAMAE_V * 0.85) + (perfect ? 12 : 8);
-    P.vel.set(h.x * sp, 0, h.z * sp);
+    this.passDir = (this.passDir || new V3()).set(h.x, 0, h.z);
+    this.passSp = Math.max(currentSpeed * 0.7, KAMAE_V * 0.85) + (perfect ? 12 : 8);
+    const lx = this.closeTo.x - P.pos.x, lz = this.closeTo.z - P.pos.z, ld = Math.hypot(lx, lz) || 1;
+    this.lungeSp = Math.max(currentSpeed, ld / CLOSE_T);
+    P.yaw = Math.atan2(lx, lz); fwd.set(lx / ld, 0, lz / ld); P.vel.set(lx / ld * this.lungeSp, 0, lz / ld * this.lungeSp);
     P.flow = Math.min(1, P.flow + (perfect ? 0.3 : 0.2)); P.invuln = 1.2;
     P.hull = Math.min(3, P.hull + 1); P.souls += perfect ? 2 : 1; store.set('ukiyo.souls', P.souls);
     cutIjin(e);
@@ -74,6 +77,8 @@ const IAI = {
   land() {
     const e = this.cutE, perfect = this.perfect;
     this.phase = 'hold'; this.freeze = this.freeze0 = perfect ? HITSTOP_P : HITSTOP; this.slow = 0.4;
+    // the blade is through: the board turns back onto the pass line and will fly on at the pass speed
+    const h = this.passDir; P.yaw = Math.atan2(h.x, h.z); fwd.set(h.x, 0, h.z); P.vel.set(h.x * this.passSp, 0, h.z * this.passSp);
     this.mie = 1; this.mieDist = 9; this.mieC.copy(P.pos).lerp(e.pos, 0.5); let pick = null;
     const C = this.mieC;
     for (const sd of [-this.side, this.side]) for (const dd of [10, 8, 6]) {
@@ -117,16 +122,14 @@ const IAI = {
     this.near = lerp(this.near, this.state === 'kamae' && e ? smooth(70, 22, d) : 0, 1 - Math.exp(-6 * dtReal));
     // time: frozen in the hit-stop, slowed after it, and slowed into the moment before the cut
     if (this.phase === 'in') {
-      // closing in with velocity, world slowed but not frozen so motion stays continuous
+      // the lunge runs in real time: velocity aimed at the figure's side each frame, so the motion stays continuous
       this.phaseT += dtReal; const k = Math.min(1, this.phaseT / CLOSE_T);
-      this.swingP = 0.65 * k; this.timeScale = 0.15; dashPunch = 0.6;
-      // gentle pull toward the close point while velocity carries us
-      const pull = 8 * (1 - k);
-      const dx = this.closeTo.x - P.pos.x, dz = this.closeTo.z - P.pos.z;
-      P.vel.x += dx * pull * dtReal; P.vel.z += dz * pull * dtReal;
-      if (k >= 1) this.land();
+      this.swingP = 0.65 * k; this.timeScale = 1; dashPunch = 1;
+      const dx = this.closeTo.x - P.pos.x, dz = this.closeTo.z - P.pos.z, dd = Math.hypot(dx, dz);
+      if (dd > 0.6) { P.vel.x = dx / dd * this.lungeSp; P.vel.z = dz / dd * this.lungeSp; P.yaw = Math.atan2(dx, dz); }
+      if (k >= 1 || dd < 0.8) this.land();
     }
-    else if (this.freeze > 0) { this.freeze -= dtReal; this.timeScale = 0; this.swingP = lerp(0.65, 0.8, 1 - this.freeze / this.freeze0); if (this.freeze <= 0) { this.phase = 'out'; this.boostT = 0.45; this.boomT = BOOM_DELAY; } }
+    else if (this.freeze > 0) { this.freeze -= dtReal; this.timeScale = 0; this.swingP = lerp(0.65, 0.8, 1 - this.freeze / this.freeze0); if (this.freeze <= 0) { this.phase = 'out'; this.boostT = 0.45; this.boomT = BOOM_DELAY; sfx.dash(); } }
     else if (this.slow > 0) { this.slow -= dtReal; this.timeScale = lerp(1, 0.45, smooth(0, 0.4, this.slow)); }
     else this.timeScale = this.state === 'kamae' ? lerp(0.85, 0.4, this.near) : 1;
     if (this.phase === 'out') this.swingP = Math.min(1, this.swingP + dtReal * 2.2);

@@ -45,6 +45,7 @@ const sfx = (() => {
       lp.frequency.setTargetAtTime(kamae || slow ? 1400 : 18000, t0, kamae ? 0.25 : 0.08);
       droneG.gain.setTargetAtTime(kamae ? 0.06 : 0, t0, 0.2); droneO.frequency.setTargetAtTime(146.8 * (1 + Math.sin(t0 * 5) * 0.004), t0, 0.05);
     },
+    whoosh() { noise(0.22, 0.01, 0.22, 'bandpass', 700, 1.4, 0, 3200); },
     hop() { noise(0.12, 0.005, 0.12, 'bandpass', 900, 2); },
     land(k) { noise(0.25 * k + 0.05, 0.005, 0.18, 'lowpass', 500); tone(70, 'sine', 0.2 * k + 0.05, 0.005, 0.2); },
     scrape(k) { noise(0.12 * k, 0.005, 0.08, 'bandpass', 2600, 3); },

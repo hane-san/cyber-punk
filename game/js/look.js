@@ -103,6 +103,17 @@ const glowFS = `${GL_COMMON}
 varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vWin; varying float vBase;
 void main(){ float dist = length(vWp - cameraPosition); float m = mistF(vWp, dist) * 0.7; gl_FragColor = vec4(mix(wash(vCol) * (0.85 + 0.55 * uNight), uMist, m), 1.0); }`;
 const glowMat = new THREE.ShaderMaterial({ uniforms: U, vertexShader: ukiyoVS, fragmentShader: glowFS });
+// ---- neon: the tubes laid along old eaves, ridges and torii. Not washed like the print, so the colour stays clean,
+// and brighter at the blue hour; each run hums a little on its own phase.
+const neonFS = `${GL_COMMON}
+varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vWin; varying float vBase;
+void main(){
+  float dist = length(vWp - cameraPosition), m = mistF(vWp, dist) * 0.55;
+  float ph = h21(floor(vWp.xz / 24.0)), hum = 0.94 + 0.06 * sin(uTime * (5.0 + ph * 6.0) + ph * 40.0);
+  vec3 c = mix(vCol, vec3(1.0), 0.18 + 0.2 * uNight) * (0.78 + 0.62 * uNight) * hum;
+  gl_FragColor = vec4(mix(c, uMist, m), 1.0);
+}`;
+const neonMat = new THREE.ShaderMaterial({ uniforms: U, vertexShader: ukiyoVS, fragmentShader: neonFS });
 
 // ---- textured print material (signs, masks, cape): flat, with mist; aCol tints
 const texVS = `
@@ -346,10 +357,10 @@ water.position.y = WATER_Y; scene.add(water);
 // very top, a low warm glow round the sun, and drifting bands of soft cloud near the horizon.
 const skyMat = new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false,
-  uniforms: { uTop: { value: new THREE.Color() }, uMid: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uBand: { value: new THREE.Color() }, uSunCol: { value: new THREE.Color() }, uSunDir: { value: new V3(0, 0.2, 1) }, uNightS: { value: 0 }, uT: { value: 0 } },
+  uniforms: { uTop: { value: new THREE.Color() }, uMid: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uBand: { value: new THREE.Color() }, uSunCol: { value: new THREE.Color() }, uSunDir: { value: new V3(0, 0.2, 1) }, uNightS: { value: 0 }, uT: { value: 0 }, uCloud: { value: 0.5 }, uCloudH: { value: 1 }, uScale: { value: 0 }, uStreak: { value: 0 } },
   vertexShader: `varying vec3 vD; void main(){ vD = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }`,
   fragmentShader: `
-uniform vec3 uTop; uniform vec3 uMid; uniform vec3 uHor; uniform vec3 uBand; uniform vec3 uSunCol; uniform vec3 uSunDir; uniform float uNightS; uniform float uT;
+uniform vec3 uTop; uniform vec3 uMid; uniform vec3 uHor; uniform vec3 uBand; uniform vec3 uSunCol; uniform vec3 uSunDir; uniform float uNightS; uniform float uT; uniform float uCloud; uniform float uCloudH; uniform float uScale; uniform float uStreak;
 varying vec3 vD;
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
@@ -364,9 +375,18 @@ void main(){
   // soft clouds: drifting bands near the horizon, white in the light
   float y = e * 9.0;
   float n = vn(vec2(az * 4.0 + uT * 0.004, y * 1.6)) * 0.6 + vn(vec2(az * 11.0 - uT * 0.006, y * 3.5)) * 0.4;
-  float band = smoothstep(0.02, 0.07, e) * (1.0 - smoothstep(0.12, 0.3, e));
-  float cl = smoothstep(0.52, 0.78, n) * band;
-  c = mix(c, uBand, cl * 0.7);
+  // how much cloud, and how high it stands, change from place to place (uCloud, uCloudH)
+  float band = smoothstep(0.02, 0.07, e) * (1.0 - smoothstep(0.12 * uCloudH, 0.3 * uCloudH, e));
+  float cl = smoothstep(0.74 - uCloud * 0.4, 0.98 - uCloud * 0.4, n) * band;
+  // the underside of a heavy bank takes the shade
+  c = mix(c, mix(uBand, uMid * 0.92, smoothstep(0.6, 1.0, uCloud) * (1.0 - smoothstep(0.02, 0.1 * uCloudH, e)) * 0.6), cl * 0.75);
+  // long streaks of cloud lying on the horizon, like the bars of mist in a print (すやり霞)
+  float st = smoothstep(0.55, 0.8, vn(vec2(az * 2.0 + uT * 0.002, e * 26.0))) * smoothstep(0.0, 0.04, e) * (1.0 - smoothstep(0.08, 0.2, e));
+  c = mix(c, uBand * 1.02, st * uStreak * 0.65);
+  // mackerel sky (うろこ雲): small scales high up, catching the sun's colour
+  vec2 q = vec2(az * 38.0, e * 46.0 + az * 6.0); float sc = vn(q + vec2(uT * 0.01, 0.0)) * vn(q * 0.23 + 3.1);
+  float scale = smoothstep(0.32, 0.5, sc) * smoothstep(0.16, 0.3, e) * (1.0 - smoothstep(0.55, 0.85, e)) * smoothstep(0.35, 0.65, vn(vec2(az * 3.0, e * 4.0) + 7.0));
+  c = mix(c, uBand + uSunCol * 0.06, scale * uScale * 0.55);
   // a few stars at the blue hour
   vec2 sp = floor(vec2(az * 260.0, e * 300.0));
   c += step(0.997, h21(sp)) * smoothstep(0.1, 0.35, e) * uNightS * 0.5;
@@ -419,6 +439,34 @@ const MOODS = [
   { name: '霞', top: 0x7f9fae, mid: 0xaec4c8, hor: 0xdfe6dc, band: 0xf2f6f0, sun: 0xeef8e8, mist: 0xd8e0d8, light: 0xf2f6ee, shade: 0xb0c0bc, wash: 0xe6ece4, night: 0.05, az: 0.2, el: 0.4 },
   { name: '昼', top: 0x8aa2c0, mid: 0xbccbdc, hor: 0xeee4c8, band: 0xfbf8ee, sun: 0xfff0c8, mist: 0xe6e0cc, light: 0xfff8ea, shade: 0xb8bcc8, wash: 0xeeeae0, night: 0.0, az: 1.3, el: 0.6 },
 ].map((m) => ({ ...m, c: Object.fromEntries(['top', 'mid', 'hor', 'band', 'sun', 'mist', 'light', 'shade', 'wash'].map((k) => [k, new THREE.Color(m[k])])) }));
+// ---- the sky of the place: the hour sets the base, and the land you ride through tints it. Each area leans to its
+// own sky (the bay to a sea-green haze, the mountains to mist, the paddies to amber, the neon quarters to lilac),
+// and inside an area a slow noise of about five kilometres swaps in the rarer skies: a crimson sunset (茜), the
+// grey-green after rain (雨後), a blue moonlit night (月夜) and a pale overcast of thin ink (薄墨).
+const SKIES = {
+  茜:  { top: 0x6e5a8a, mid: 0xc98a8e, hor: 0xf6a07a, band: 0xffc7a0, sun: 0xff8a5a, mist: 0xe8b8a0, light: 0xffd8bc, shade: 0x9a7f9e, wash: 0xf0d4c4, night: 0.25, cloud: 0.7, cloudH: 1.5, scale: 1, streak: 0.4 },
+  雨後: { top: 0x6f8590, mid: 0x9fb2b0, hor: 0xd2dccf, band: 0xe6ece4, sun: 0xe0eedc, mist: 0xc4d0c8, light: 0xe2eadc, shade: 0x93a6a6, wash: 0xd8e2d8, night: 0.12, cloud: 0.95, cloudH: 2.2, scale: 0, streak: 0.9 },
+  月夜: { top: 0x2f3b66, mid: 0x4f5b8a, hor: 0x8c94b8, band: 0xb4bad6, sun: 0xdfe6ff, mist: 0x7c84a6, light: 0xa8b0d4, shade: 0x5c6290, wash: 0xa8acc8, night: 1.0, cloud: 0.35, cloudH: 1.2, scale: 0.4, streak: 0.3 },
+  薄墨: { top: 0x8e9098, mid: 0xb2b2b6, hor: 0xd8d4cc, band: 0xe2e0da, sun: 0xeae6dc, mist: 0xcfccc4, light: 0xe6e2da, shade: 0xa6a6ac, wash: 0xdedad2, night: 0.2, cloud: 1.0, cloudH: 2.6, scale: 0, streak: 0.6 },
+  潮:  { top: 0x6f9aa8, mid: 0xa4c6c6, hor: 0xd8eae0, band: 0xf0f8f2, sun: 0xf2fff0, mist: 0xc8e0da, light: 0xeef8f2, shade: 0x9ab8b8, wash: 0xe0eee8, night: 0.05, cloud: 0.4, cloudH: 0.8, scale: 0.6, streak: 0.8 },
+  靄:  { top: 0x8aa0a4, mid: 0xb8c8c4, hor: 0xe0e6dc, band: 0xf0f2ec, sun: 0xf0f4e8, mist: 0xdde4dc, light: 0xeef2ea, shade: 0xaab8b4, wash: 0xe8ece6, night: 0.08, cloud: 0.8, cloudH: 0.6, scale: 0, streak: 1 },
+  琥珀: { top: 0x8f8ca8, mid: 0xc8b8a8, hor: 0xf4dcae, band: 0xfcecd0, sun: 0xffd08a, mist: 0xeadcc0, light: 0xfff0d8, shade: 0xaca29e, wash: 0xf2e6d4, night: 0.1, cloud: 0.45, cloudH: 1.1, scale: 0.8, streak: 0.3 },
+  藤:  { top: 0x5e5a8e, mid: 0x9a8cb8, hor: 0xd8c4d8, band: 0xe8dcea, sun: 0xf6d8ff, mist: 0xb8aac8, light: 0xd8d0e8, shade: 0x857ca8, wash: 0xd6cee2, night: 0.7, cloud: 0.5, cloudH: 1.3, scale: 0.3, streak: 0.4 },
+};
+for (const k in SKIES) SKIES[k].c = Object.fromEntries(['top', 'mid', 'hor', 'band', 'sun', 'mist', 'light', 'shade', 'wash'].map((q) => [q, new THREE.Color(SKIES[k][q])]));
+const KIND_SKY = { coast: '潮', port: '潮', mount: '靄', satoyama: '靄', rural: '琥珀', suburb: '琥珀', neon: '藤', tower: '藤', shita: '茜', temple: '茜', park: '雨後', palace: '薄墨', resi: null };
+const RARE_SKY = ['茜', '雨後', '月夜', '薄墨'];
+// the sky the land asks for at (x, z): a key and a weight. Smooth in space, so riding carries you from one to the next
+function placeSky(x, z) {
+  const n = vnoise(x / 5200, z / 5200, 71), m = vnoise(x / 2600 + 9, z / 2600 - 4, 72);
+  const rare = RARE_SKY[Math.min(3, (vnoise(x / 9000, z / 9000, 73) * 4) | 0)];
+  if (n > 0.62) return [rare, smooth(0.62, 0.78, n) * 0.75];
+  const k = KIND_SKY[kindAt(x, z)];
+  if (!k) return [RARE_SKY[(m * 4) | 0], smooth(0.45, 0.7, m) * 0.35];
+  return [k, 0.3 + 0.3 * m];
+}
+const skyMix = Object.fromEntries(Object.keys(SKIES).map((k) => [k, { v: 0, want: 0 }]));
+let skySampleT = 0, skySnap = true; // skySnap: take the place's sky at once (start, teleport)
 const DAY_PERIOD = 900; // seconds for a full turn of the hour
 let moodFix = store.get('ukiyo.mood3', -1); // -1 = the hour moves; otherwise a fixed mood index
 let moodPhase = 0.1;
@@ -427,7 +475,23 @@ function updateMood(dt) {
   if (moodFix >= 0) moodPhase = lerp(moodPhase, moodFix, 1 - Math.exp(-1.5 * dt)); else moodPhase = (moodPhase + dt * MOODS.length / DAY_PERIOD) % MOODS.length;
   const i = Math.floor(moodPhase) % MOODS.length, f = smooth(0.5, 1, moodPhase - Math.floor(moodPhase)), A = MOODS[i], B = MOODS[(i + 1) % MOODS.length];
   for (const k in _m) _m[k].copy(A.c[k]).lerp(B.c[k], f);
-  const night = lerp(A.night, B.night, f), az = lerp(A.az, A.az + wrapA(B.az - A.az), f), el = lerp(A.el, B.el, f);
+  let night = lerp(A.night, B.night, f), cloud = 0.5, cloudH = 1, scale = 0.2, streak = 0.3;
+  const az = lerp(A.az, A.az + wrapA(B.az - A.az), f), el = lerp(A.el, B.el, f);
+  // the place's sky, eased in over a few seconds as the land changes under you
+  skySampleT -= dt;
+  if (skySampleT <= 0 || skySnap) {
+    skySampleT = 0.5; const [key, w] = started ? placeSky(P.pos.x, P.pos.z) : placeSky(camera.position.x, camera.position.z);
+    for (const k in skyMix) skyMix[k].want = k === key ? w : 0;
+  }
+  for (const k in skyMix) {
+    const m = skyMix[k], nv = m.v = skySnap ? m.want : lerp(m.v, m.want, 1 - Math.exp(-0.25 * dt));
+    if (nv < 0.002) continue;
+    const Sk = SKIES[k], t = nv * (1 - 0.5 * night * (k === '月夜' ? 0 : 1));
+    for (const q in _m) _m[q].lerp(Sk.c[q], t);
+    night = lerp(night, Sk.night, t * 0.8); cloud = lerp(cloud, Sk.cloud, nv); cloudH = lerp(cloudH, Sk.cloudH, nv); scale = lerp(scale, Sk.scale, nv); streak = lerp(streak, Sk.streak, nv);
+  }
+  skySnap = false;
+  skyMat.uniforms.uCloud.value = cloud; skyMat.uniforms.uCloudH.value = cloudH; skyMat.uniforms.uScale.value = scale; skyMat.uniforms.uStreak.value = streak;
   skyMat.uniforms.uTop.value.copy(_m.top); skyMat.uniforms.uMid.value.copy(_m.mid); skyMat.uniforms.uHor.value.copy(_m.hor); skyMat.uniforms.uBand.value.copy(_m.band);
   skyMat.uniforms.uSunCol.value.copy(_m.sun); skyMat.uniforms.uSunDir.value.set(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el)); skyMat.uniforms.uNightS.value = smooth(0.6, 1, night);
   skyMat.uniforms.uT.value += dt;

@@ -10,7 +10,7 @@ The game is meant to become an open-world RPG. This first prototype settles **th
 - the look, a woodblock print;
 - the one combat verb, the iai cut.
 
-There are no turrets. You survive by going fast and slipping through, and you answer the masked figures with a single cut.
+There are no turrets and, for now, no barrage from the sky. The threat is on the ground: masked figures in the road throw low cuts along it at you. You lock on to one from far off, glide in losing speed a little at a time, lean through its rounds, and cut as you pass; then the board flies on to the next. The loop is lock → glide and dodge → cut → re-accelerate, chained.
 
 ## The look: Wind Lover, made Japanese and more wistful
 
@@ -98,7 +98,25 @@ Measured in the harness, from 170 m at 50 m/s:
 
 Passing at 52 m/s, 14 m to the side, was safe.
 
-## The other world in the sky
+## Ground attacks (地走り)
+
+The sky barrage is set aside (`SKY_THREAT = false` in `yokai.js`; the assault and chase code stays for later). Cranes and fox fires still pass overhead as scenery.
+
+| What | Behaviour |
+|---|---|
+| Who fires | Only the nearest two idle figures ahead of you, between 90 m and 270 m. Inside 90 m a figure stops throwing and readies its naginata, so the last stretch before the cut is clean. |
+| Cadence | One figure of rounds every 1.15–1.65 s each, after a short raise of the blade (0.25 s tell). |
+| Speed | Rounds run low (1.15 m above the road) at 34 m/s, aimed at where you will be (55% lead). With your own pace the closing speed is about 75–95 m/s, so a figure fired from 200 m takes about two and a half seconds to arrive. |
+| Shapes | 扇 (a fan of nine, 0.075 rad apart), 弧 (a wall across the road with one 6.8 m gap), 連 (a stream of five at 40 m/s), 双 (two lines that close like scissors on your path). Each figure cycles through them. |
+| Look | Vermilion or indigo beads (3.4 m) with a warm additive halo, so they read head-on against the road. |
+| Cover | Low rounds break on walls, so a building is cover. They ignore expressway roofs. |
+| Hits | A hit costs one hull and breaks the stance (`地走り`). On touch the held finger takes the stance again at once. Grazes within 4.8 m chime and add flow, as before. |
+
+Dodging is in the stance itself: steering there is now 80% of normal (it was 45%), and the lock's assist gives way while you steer.
+
+Figures are spawned every 90–220 m of travel (it was 120–300 m), up to eight at a time, so cuts chain.
+
+## The other world in the sky (paused)
 
 | What | Behaviour |
 |---|---|
@@ -179,7 +197,7 @@ More for the feel:
 The cut is meant to flow in one breath:
 1. **Lock on from far:** up to 380 m ahead, within about 55° of your line.
 2. **Surge:** on the lock, a temple bell's rin and a small drum's ka sound, and the board surges forward for 0.25 s (about +11 m/s).
-3. **Glide:** the board eases toward 85% of the speed you came in with (at least 35 m/s), at a gentle 0.7/s, never braking hard. Time slows only from 0.95 to 0.6 as you close. The frame drains of colour and darkens from the edges inward, while the centre stays clear.
+3. **Glide:** the board gives up speed a little at a time as the figure comes closer. The target speed slides from 92% of your entry speed at 320 m to 62% at 45 m (never below 30 m/s), approached at 0.7/s, never braking hard. That leaves time to read the rounds and to time the release. Time slows only from 0.95 to 0.6 as you close. The frame drains of colour and darkens from the edges inward, while the centre stays clear.
 4. **Cut**, as before.
 5. **Back to speed:** over 0.7 s the board returns to the speed you came in with (×1.04, or ×1.12 for 一閃), smoothly.
 
@@ -189,6 +207,35 @@ Measured from 330 m at 55 m/s:
 - the cut landed at 2.4 m;
 - the board was back above 60 m/s within about a second.
 
+Measured with the ground attacks on, from 330 m at 55 m/s (holding, not steering): speed went 60 → 51 m/s by 175 m, 42 m/s by 97 m and 37 m/s at the wind-up, then the cut landed and the board was back above 60 m/s in about a second.
+
+The camera never cuts. Through the stance, the hit-stop and the blast it stays on the ride path; the change is carried by colour (focus, the mono frame, the flash) and sound.
+
+## Skies by place
+
+The hour sets the base mood. The land you ride through tints it, eased in over a few seconds (rate 0.25/s, sampled every 0.5 s at the rider):
+
+| Area | Sky | Clouds |
+|---|---|---|
+| Coast, port | 潮: sea-green haze | low, with horizon streaks |
+| Mountains, satoyama | 靄: mist | low, heavy, long streaks |
+| Paddies, suburbs | 琥珀: amber | mackerel sky |
+| Neon quarters, towers | 藤: lilac | moderate |
+| Old town, temples | 茜: crimson | tall banks, mackerel sky |
+| Parks | 雨後: grey-green after rain | heavy banks |
+| The palace | 薄墨: thin-ink overcast | heavy |
+
+Inside an area a 5.2 km noise swaps in one of the rarer skies (茜, 雨後, 月夜 a blue moonlit night, 薄墨) at up to 75%, chosen by a 9 km noise; the plain residential belt borrows them at up to 35%. The sky shader takes four place-driven uniforms: cloud amount (`uCloud`), bank height (`uCloudH`), mackerel scales (`uScale`) and horizon streaks of mist (`uStreak`, すやり霞).
+
+## Old Japan in neon
+
+The buildings mix traditional forms with neon tubes (`neonMat`: not washed, brighter at the blue hour, each run humming on its own phase). Tubes go into a per-chunk builder, `GB.neon`. The palette is asagi `0x5fe0f0`, sakura `0xff9ec8`, violet `0xa98bff`, gold `0xffd27a` and vermilion `0xff6a4a`.
+
+- **Mid-rises as 楼閣.** In the neon quarters 50% of mid-rises over 9 m (old town and temples 45%, towers 35%, elsewhere 15%) get a tiled eave skirt every 8–13 m, a hipped crown with a gold finial, a tube along every eave lip, and sometimes lit corner pilasters.
+- **Glass pagodas.** 70% of towers in the neon quarters (40% elsewhere) get an eave skirt every ~30 m and at each setback, and a hipped crown with a lit lip and a light mast. Their tubes are thicker (0.4–0.5 m) so they read from far.
+- **Old houses.** In the lit districts 40% of wooden houses (10% elsewhere) have a tube along both eaves and the ridge. Their roofs now cover the right footprint.
+- **Torii of light.** In the neon quarters, the old town, temples and towers, a neon torii sometimes stands over a street (22% of blocks in the neon quarters, 12% elsewhere), with posts as colliders.
+
 ## Known limitations
 
 - Start-up builds the district field and the global towers for the whole 72 × 62 km world: about 3 s in headless Chromium on a desktop CPU.
@@ -196,4 +243,5 @@ Measured from 330 m at 55 m/s:
 - The local grid ignores arterial angles, so blocks next to radials are cut raggedly.
 - Ramps come off the arterials under the expressway. Where an expressway has no road beneath (parts of 湾岸線), its ramps are skipped over water.
 - Buildings are axis-aligned boxes.
+- Ground rounds fly at a fixed height, so on a slope they can pass over or into the road.
 - Brush fonts (Yuji Syuku) load from Google Fonts. Until they arrive, signs use a fallback face and are redrawn once the font loads.

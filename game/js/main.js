@@ -3,7 +3,7 @@ const camDir = new V3(0, 0, 1), camPos = new V3(), camOff = new V3(0, 3, -7), lo
 const basis = new THREE.Matrix4(), bx = new V3(), bz = new V3(), _look = new V3(), _mie = new V3();
 let camBaseY = 0, lookAng = 0, suspY = 0, suspV = 0, kamaeK = 0;
 function onPlaced() {
-  updateChunks(true, P.pos.x, P.pos.z);
+  updateChunks(true, P.pos.x, P.pos.z); skySnap = true;
   camDir.copy(fwd); camBaseY = P.pos.y; camOff.set(-fwd.x * S.camDist, 4, -fwd.z * S.camDist); lookAng = 0;
   updateRider(0); resetCape(); resetTrail();
 }

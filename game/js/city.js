@@ -42,6 +42,29 @@ function roundTree(B, x, y, z, R, col, s = 1) {
   B.frustum(x, y + 2.4 * s, z, r * 0.6, r * 0.6, r, r, r * 0.7, R() * 3, colorJit(col, R, 0.08));
   B.frustum(x, y + 2.4 * s + r * 0.7, z, r, r, r * 0.35, r * 0.35, r * 0.75, R() * 3, colorJit(col, R, 0.08));
 }
+// ---- old Japan in neon: tiled eaves stacked up a modern block with a tube along each lip, hipped crowns with a lit
+// ridge, and torii drawn in light over the street. The tubes go into a builder of their own (GB.neon, neonMat).
+const NEON = [0x5fe0f0, 0xff9ec8, 0xa98bff, 0xffd27a, 0xff6a4a];
+const EAVE_COL = [0x3e4656, 0x4a4250, 0x34404a, 0x5a4a48];
+function neonOf(GB) { return GB.neon || (GB.neon = new Builder()); }
+function neonRect(NB, x, y, z, hw, hd, col, r = 0.11) {
+  const c = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]];
+  for (let k = 0; k < 4; k++) { const a = c[k], b = c[(k + 1) % 4]; NB.beam([x + a[0], y, z + a[1]], [x + b[0], y, z + b[1]], r, col); }
+}
+// a skirt of tiles round a block at height y, sloping out and down, its lip lit
+function eaveTier(B, NB, x, y, z, hw, hd, ov, roof, neon, r = 0.14) {
+  B.frustum(x, y - 0.9, z, hw + ov, hd + ov, hw + 0.15, hd + 0.15, 1.1, 0, roof, 3);
+  if (neon) neonRect(NB, x, y - 0.92, z, hw + ov, hd + ov, neon, r);
+}
+// a torii of light across a street: two posts, the tie beam and the upswept lintel
+function neonTorii(NB, cols, x, y, z, rot, half, col) {
+  const co = Math.cos(rot), si = Math.sin(rot), P = (lx, yy) => [x + lx * co, y + yy, z - lx * si];
+  const w = half + 0.7, H = 8.6;
+  for (const sd of [-1, 1]) { NB.beam(P(sd * w, 0), P(sd * w * 0.97, H), 0.2, col); addCol(cols, P(sd * w, 0)[0], P(sd * w, 0)[2], 0.35, 0.35, y + H, y - 1, 0, true); }
+  NB.beam(P(-w - 0.6, H - 1.5), P(w + 0.6, H - 1.5), 0.13, col);
+  NB.beam(P(-w - 2.2, H + 0.55), P(-w * 0.5, H + 0.15), 0.18, col); NB.beam(P(-w * 0.5, H + 0.15), P(w * 0.5, H + 0.15), 0.18, col); NB.beam(P(w * 0.5, H + 0.15), P(w + 2.2, H + 0.55), 0.18, col);
+  NB.beam(P(0, H - 1.5), P(0, H + 0.15), 0.1, col);
+}
 function torii(B, x, y, z, rot, s, col = COL.shu) {
   const co = Math.cos(rot), si = Math.sin(rot), P = (lx, lz) => [x + lx * co + lz * si, z - lx * si + lz * co];
   for (const sd of [-1, 1]) { const p = P(sd * 2.2 * s, 0); B.cyl(p[0], y, p[1], 0.32 * s, 0.26 * s, 5.4 * s, 8, col); }
@@ -127,14 +150,22 @@ function buildTower(B, SB, GB, T) {
   }
   let y = T.base, hw = T.hw, hd = T.hd;
   const tiers = T.h > 120 ? 3 : T.h > 70 ? 2 : 1, rot = 0;
+  // some towers are dressed as a pagoda of glass: a tiled eave at each setback with a tube along its lip
+  const old = R() < (T.kind === 'neon' ? 0.7 : 0.4), roof = EAVE_COL[(R() * EAVE_COL.length) | 0], nc = NEON[(R() * NEON.length) | 0], NB = neonOf(GB);
   for (let k = 0; k < tiers; k++) {
     const hk = T.h * (k === 0 ? (tiers === 1 ? 1 : 0.58) : k === 1 ? (tiers === 2 ? 0.42 : 0.27) : 0.15);
     B.box(T.x, y, T.z, hw, hk, hd, rot, colorJit(col, R, 0.05), win, colorJit(COL.nezumi, R));
-    y += hk; hw *= 0.78; hd *= 0.78;
+    if (old) { const step = hk > 60 ? hk / Math.round(hk / 30) : hk; for (let ey = y + step; ey < y + hk - 1; ey += step) eaveTier(B, NB, T.x, ey, T.z, hw, hd, 2.2, roof, nc, 0.4); }
+    y += hk;
+    if (old) eaveTier(B, NB, T.x, y + 0.4, T.z, hw, hd, 3.2, roof, nc, 0.5);
+    hw *= 0.78; hd *= 0.78;
   }
   addCol(null, T.x, T.z, T.hw, T.hd, T.base + T.h, T.base - 4, 0, true);
-  const crown = R();
-  if (crown < 0.17) pagoda(B, T.x, y, T.z, 3 + (R() * 2 | 0), Math.min(hw, hd) * 0.8, 6, 0, COL.shironeri, COL.rokusho);
+  const crown = old ? -1 : R();
+  if (old) { // a hipped crown, its eave lit and a gold finial on the ridge
+    const hh = Math.min(hw, hd) * 0.9; B.hip(T.x, y, T.z, hw, hd, hh, 0, roof, 2.4); neonRect(NB, T.x, y + 0.02, T.z, hw + 2.4, hd + 2.4, nc, 0.5);
+    B.cyl(T.x, y + hh, T.z, 0.5, 0.05, 9, 6, COL.kin); NB.beam([T.x, y + hh - 0.5, T.z], [T.x, y + hh + 12, T.z], 0.3, nc);
+  } else if (crown < 0.17) pagoda(B, T.x, y, T.z, 3 + (R() * 2 | 0), Math.min(hw, hd) * 0.8, 6, 0, COL.shironeri, COL.rokusho);
   else if (crown < 0.32) B.cyl(T.x, y, T.z, 0.6, 0.1, 28 + R() * 30, 5, COL.ginnezumi);
   else if (crown < 0.42) B.frustum(T.x, y, T.z, hw, hd, hw * 0.1, hd * 0.1, Math.min(hw, hd) * 1.4, 0, COL.ainezumi, 0);
   else { B.box(T.x, y, T.z, hw * 0.4, 4, hd * 0.4, 0, COL.nezumi); }
@@ -156,7 +187,7 @@ const towerRegions = [];
   for (const list of groups.values()) {
     const B = new Builder(), GB = new Builder(), SB = { screens: new Builder() };
     for (const T of list) buildTower(B, SB, GB, T);
-    const g = new THREE.Group(); g.add(B.mesh()); if (GB.count) g.add(GB.mesh(glowMat)); if (SB.screens.count) g.add(SB.screens.mesh(screenMat));
+    const g = new THREE.Group(); g.add(B.mesh()); if (GB.count) g.add(GB.mesh(glowMat)); if (GB.neon && GB.neon.count) g.add(GB.neon.mesh(neonMat)); if (SB.screens.count) g.add(SB.screens.mesh(screenMat));
     scene.add(g); towerRegions.push(g);
   }
 })();
@@ -388,7 +419,7 @@ function buildChunk(cx, cz) {
     buildBlock(B, GB, SB, cols, wires, i, j, R);
   }
   const group = new THREE.Group();
-  group.add(B.mesh()); if (GB.count) group.add(GB.mesh(glowMat)); if (SB.count) group.add(SB.mesh(signMat));
+  group.add(B.mesh()); if (GB.count) group.add(GB.mesh(glowMat)); if (GB.neon && GB.neon.count) group.add(GB.neon.mesh(neonMat)); if (SB.count) group.add(SB.mesh(signMat));
   if (wires.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(wires, 3)); const l = new THREE.LineSegments(g, wireMat); group.add(l); }
   scene.add(group);
   chunks.set(chKey(cx, cz), { group, cols, crossings });
@@ -611,7 +642,12 @@ function buildBlock(B, GB, SB, cols, wires, i, j, R) {
       const floors = R() < 0.2 ? 3 : R() < 0.7 ? 2 : 1; h = floors * 2.9 + 0.4;
       const col = colorJit(WOOD_PAL[(R() * WOOD_PAL.length) | 0], R, 0.06);
       B.box(x, y, z, hw, h, hd, 0, col, 2);
-      const ridgeX = hw > hd; B.gable(x, y + h, z, hw, hd, (ridgeX ? hd : hw) * 0.55, ridgeX ? 0 : Math.PI / 2, colorJit(COL.kawara, R, 0.05), 0.5);
+      const ridgeX = hw > hd, rh = (ridgeX ? hd : hw) * 0.55; B.gable(x, y + h, z, ridgeX ? hw : hd, ridgeX ? hd : hw, rh, ridgeX ? 0 : Math.PI / 2, colorJit(COL.kawara, R, 0.05), 0.5);
+      if (R() < (K.neon > 0.1 ? 0.4 : 0.1)) { // a tube along the eaves and the ridge of an old house
+        const NB = neonOf(GB), nc = NEON[(R() * NEON.length) | 0], ey = y + h + 0.02, W = hw + 0.5, D = hd + 0.5;
+        if (ridgeX) { for (const sd of [-1, 1]) NB.beam([x - W, ey, z + sd * D], [x + W, ey, z + sd * D], 0.08, nc); NB.beam([x - W, y + h + rh, z], [x + W, y + h + rh, z], 0.09, nc); }
+        else { for (const sd of [-1, 1]) NB.beam([x + sd * W, ey, z - D], [x + sd * W, ey, z + D], 0.08, nc); NB.beam([x, y + h + rh, z - D], [x, y + h + rh, z + D], 0.09, nc); }
+      }
       if (face) { // a lantern by the door, an eave, sometimes noren
         const fx = x + face[0] * (hw + 0.35), fz = z + face[1] * (hd + 0.35);
         GB.cyl(fx + face[1] * hw * 0.5, y + 2.1, fz - face[0] * hd * 0.5, 0.26, 0.26, 0.55, 5, R() < 0.5 ? COL.beni : COL.shu);
@@ -636,9 +672,18 @@ function buildBlock(B, GB, SB, cols, wires, i, j, R) {
       const pal = kind === 'resi' ? RESI_PAL : MID_PAL, col = colorJit(pal[(R() * pal.length) | 0], R);
       const win = kind === 'neon' ? 7 : kind === 'resi' ? (R() < 0.6 ? 4 : 1) : (R() < 0.5 ? 7 : 1);
       B.box(x, y, z, hw, h, hd, 0, col, win, colorJit(COL.nezumi, R));
+      const oldP = kind === 'neon' ? 0.5 : kind === 'tower' ? 0.35 : kind === 'shita' || kind === 'temple' ? 0.45 : 0.15;
+      const rr = h > 9 && R() < oldP ? -1 : R();
+      if (rr < 0) { // a modern block wearing old eaves: a tiled skirt every few floors, a hipped crown, all edged in light
+        const NB = neonOf(GB), roof = EAVE_COL[(R() * EAVE_COL.length) | 0], nc = NEON[(R() * NEON.length) | 0], step = 8 + R() * 5;
+        for (let ey = y + step; ey < y + h - 3; ey += step) eaveTier(B, NB, x, ey, z, hw, hd, 1.3, roof, nc);
+        const hh = Math.min(hw, hd) * (0.5 + R() * 0.3);
+        B.hip(x, y + h, z, hw, hd, hh, 0, roof, 1.5); neonRect(NB, x, y + h + 0.02, z, hw + 1.5, hd + 1.5, nc, 0.12);
+        if (R() < 0.5) for (const [sx, sz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) NB.box(x + sx * (hw + 0.05), y + 3, z + sz * (hd + 0.05), 0.12, h - 3.2, 0.12, 0, nc);
+        if (R() < 0.6) B.cyl(x, y + h + hh * 0.9, z, 0.25, 0.05, 2.6, 5, COL.kin);
+      }
       // roof clutter: a water tank, units, or a billboard frame
-      const rr = R();
-      if (rr < 0.3) B.cyl(x + (R() - 0.5) * hw, y + h, z + (R() - 0.5) * hd, 1.3, 1.3, 2.4, 8, COL.ginnezumi);
+      else if (rr < 0.3) B.cyl(x + (R() - 0.5) * hw, y + h, z + (R() - 0.5) * hd, 1.3, 1.3, 2.4, 8, COL.ginnezumi);
       else if (rr < 0.55) for (let k = 0; k < 3; k++) B.box(x + (R() - 0.5) * hw * 1.4, y + h, z + (R() - 0.5) * hd * 1.4, 0.8, 0.9, 0.6, 0, COL.ginnezumi);
       if (face && R() < K.neon && h > 7) { // vertical signs at the corner, out over the street
         const n = 1 + (R() < K.neon * 0.6 ? 1 : 0);
@@ -654,6 +699,10 @@ function buildBlock(B, GB, SB, cols, wires, i, j, R) {
       }
     }
     addCol(cols, x, z, hw, hd, y + h + 0.3, y - 3, 0, h > 3.5);
+  }
+  // now and then a torii of light stands over the street at the block's west side
+  if ((kind === 'neon' || kind === 'shita' || kind === 'temple' || kind === 'tower') && westSt && R() < (kind === 'neon' ? 0.22 : 0.12)) {
+    const tz = r.zm + 9, tx = lineX(i); if (vPresent(i, tz) && !inCorridor(tx, tz, 4)) neonTorii(neonOf(GB), cols, tx, terrainH(tx, tz), tz, 0, vHalf(i, tz), NEON[(R() * NEON.length) | 0]);
   }
   // power poles and sagging wires along the west and north streets of the block, and paper lanterns over old-town lanes
   if (kind !== 'tower' && kind !== 'port') {

@@ -107,7 +107,7 @@ const SHAPES = {
 const SHAPE_KEYS = Object.keys(SHAPES);
 const forms = [], bullets = [];
 let formT = 3, assaultCD = 6, chaseCD = 10, threatOn = store.get('ukiyo.threat', true);
-const BULLET_SPD = 56, DRONE_MAX = 64, CLOSE = 60;
+const BULLET_SPD = 56, DRONE_MAX = 64, CLOSE = 60, SKY_THREAT = false;
 function spawnFormation(kind, mode) {
   const n = kind === 'kitsune' ? 14 : kind === 'crane' ? 5 + (Math.random() * 5 | 0) : 6 + (Math.random() * 8 | 0);
   const shape = kind === 'kitsune' ? '長蛇' : SHAPE_KEYS[(Math.random() * SHAPE_KEYS.length) | 0];
@@ -141,7 +141,8 @@ function updateFormations(dt) {
     formT = 2.5 + Math.random() * 4;
     spawnFormation(Math.random() < 0.5 ? 'crane' : 'kitsune', 'pass');
   }
-  if (threatOn && started && !P.dead) {
+  // the sky barrage is set aside for now: the threat is on the ground. Cranes and fox fires still pass as scenery.
+  if (SKY_THREAT && threatOn && started && !P.dead) {
     if (assaultCD <= 0 && !forms.some((f) => f.mode === 'assault')) { assaultCD = 8 + Math.random() * 8 - (speed > 50 ? 4 : 0); spawnFormation('mask', 'assault'); }
     // slow riders are hunted from behind
     if (chaseCD <= 0 && !forms.some((f) => f.mode === 'chase')) { chaseCD = speed < 18 ? 6 : 16 + Math.random() * 10; spawnFormation('mask', 'chase'); }
@@ -212,8 +213,10 @@ function pattern(f) {
 }
 const simTimers = [];
 function setTimeoutSim(fn, d) { simTimers.push({ t: d, fn }); }
-function fireBullet(p, v, alt = 0) {
-  const b = { p: p.clone(), v: v.clone(), life: 7, grazed: false, fx: fxAdd(FXN, alt ? 'tamaB' : 'tama', p, v, 7, 1.6, 1.6, { a: 1, rot: 0 }) };
+function fireBullet(p, v, alt = 0, size = 1.6, low = false) {
+  const b = { p: p.clone(), v: v.clone(), life: low ? 9 : 7, low, grazed: false, fx: fxAdd(FXN, alt ? 'tamaB' : 'tama', p, v, low ? 9 : 7, size, size, { a: 1, rot: 0 }) };
+  // low rounds carry a warm halo so they read against the road even head-on
+  if (low) b.fx2 = fxAdd(FXA, 'dot', p, v, 9, size * 2.2, size * 2.2, { a: 1, tint: alt ? [0.35, 0.45, 0.9] : [0.95, 0.38, 0.22] });
   bullets.push(b);
 }
 function updateBullets(dt) {
@@ -221,10 +224,13 @@ function updateBullets(dt) {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i]; b.life -= dt; b.p.addScaledVector(b.v, dt);
     if (b.fx) { b.fx.p.copy(b.p); b.fx.v.set(0, 0, 0); }
+    if (b.fx2) { b.fx2.p.copy(b.p); b.fx2.v.set(0, 0, 0); }
     const d = b.p.distanceTo(P.pos);
-    if (d < 1.3 && !P.shelter && P.invuln <= 0 && !P.dead) { hurt('人魂'); b.life = 0; fxSparks(b.p, 0, 0, 10); }
+    if (d < 1.3 && (b.low || !P.shelter) && P.invuln <= 0 && !P.dead) { hurt(b.low ? '地走り' : '人魂'); b.life = 0; fxSparks(b.p, 0, 0, 10); }
     else if (d < 4.8 && !b.grazed && !P.dead) { b.grazed = true; graze(); }
-    if (b.life <= 0 || b.p.y < P.pos.y - 8 || d > 900) { if (b.fx) b.fx.age = b.fx.life; bullets.splice(i, 1); }
+    // low rounds break on walls, so a building is cover
+    if (b.low && b.life > 0 && ((b.k = (b.k || 0) + 1) & 1) && !pointFree(b.p.x, b.p.z, b.p.y)) { b.life = 0; fxSparks(b.p, 0, 0, 4); }
+    if (b.life <= 0 || b.p.y < P.pos.y - 8 || d > 900) { if (b.fx) b.fx.age = b.fx.life; if (b.fx2) b.fx2.age = b.fx2.life; bullets.splice(i, 1); }
   }
 }
 let grazeChain = 0, grazeT = 0;
@@ -280,11 +286,13 @@ function spawnIjin() {
 function placeIjin(x, z, y) {
   const R = mulberry((Math.random() * 1e9) | 0), m = makeIjin(R);
   m.g.position.set(x, y, z); scene.add(m.g);
-  const e = { ...m, pos: new V3(x, y, z), state: 'idle', t: 0, wind: 0, cool: 0, alive: true, deadT: 0, face: Math.random() * TAU, locked: false };
+  const e = { ...m, pos: new V3(x, y, z), state: 'idle', t: 0, wind: 0, cool: 0, alive: true, deadT: 0, face: Math.random() * TAU, locked: false, shotT: 0.6 + Math.random() * 0.8, shotK: (Math.random() * GROUND_SHOTS.length) | 0 };
   ijins.push(e); return e;
 }
 function updateIjins(dt) {
-  if (threatOn && started && !P.dead) { ijinDist -= Math.hypot(P.vel.x, P.vel.z) * dt; if (ijinDist <= 0 && ijins.filter((e) => e.alive).length < 8) { ijinDist = 120 + Math.random() * 180; spawnIjin(); } }
+  if (threatOn && started && !P.dead) { ijinDist -= Math.hypot(P.vel.x, P.vel.z) * dt; if (ijinDist <= 0 && ijins.filter((e) => e.alive).length < 8) { ijinDist = 90 + Math.random() * 130; spawnIjin(); } }
+  // only the nearest two figures ahead throw their cuts, so the road stays readable
+  const shooters = threatOn && started && !P.dead ? groundShooters() : NO_SHOOTERS;
   for (const e of ijins) {
     e.t += dt;
     if (!e.alive) {
@@ -301,6 +309,12 @@ function updateIjins(dt) {
       const T = d / Math.max(closing, 1);
       if (e.cool <= 0 && closing > 4 && d < 150 && Math.abs(dy) < 7 && T < WINDUP + 0.08) { e.state = 'windup'; e.wind = WINDUP; sfx.yoo(); }
       e.mane.rotation.x = Math.sin(e.t * 1.4) * 0.1; e.arm.rotation.x = lerp(e.arm.rotation.x, 0, 1 - Math.exp(-4 * dt));
+      // from afar it sends its cuts along the ground at you: a short raise of the blade, then a figure of rounds
+      if (shooters.includes(e) && e.cool <= 0 && d > SHOT_MIN && d < SHOT_MAX && Math.abs(dy) < 8) {
+        e.shotT -= dt;
+        if (e.shotT < 0.25) e.arm.rotation.x = lerp(e.arm.rotation.x, -1.4, 1 - Math.exp(-14 * dt));
+        if (e.shotT <= 0) { e.shotT = SHOT_GAP + Math.random() * 0.5; groundShot(e, d); e.arm.rotation.x = 0.9; }
+      }
     } else if (e.state === 'windup') {
       e.wind -= dt; const u = 1 - e.wind / WINDUP;
       // the head swings the mane round (毛振り), the blade rises overhead
@@ -318,6 +332,48 @@ function updateIjins(dt) {
     if (d > 800 || (d > 320 && (dx * vx + dz * vz) > 0)) e.alive = false, e.deadT = 9;
   }
   for (let i = ijins.length - 1; i >= 0; i--) { const e = ijins[i]; if (!e.alive && e.deadT > 1.4) { scene.remove(e.g); ijins.splice(i, 1); } }
+}
+// ---- ground attacks: rounds sent low along the road toward the rider. They come at GROUND_SPD on top of your own
+// pace, so from 200 m a figure arrives in about two and a half seconds: read the shape, and lean through the gap.
+// Inside SHOT_MIN the figure stops throwing and readies its naginata, so the last stretch before the cut is clean.
+const SHOT_MIN = 90, SHOT_MAX = 270, SHOT_GAP = 1.15, GROUND_SPD = 34, NO_SHOOTERS = [];
+const GROUND_SHOTS = ['扇', '弧', '連', '双'];
+function groundShooters() {
+  const out = [];
+  for (const e of ijins) {
+    if (!e.alive || e.state !== 'idle') continue;
+    const dx = e.pos.x - P.pos.x, dz = e.pos.z - P.pos.z, d = Math.hypot(dx, dz);
+    if (d > SHOT_MAX || d < SHOT_MIN || dx * P.vel.x + dz * P.vel.z <= 0) continue;
+    out.push([d, e]);
+  }
+  out.sort((a, b) => a[0] - b[0]);
+  return out.slice(0, 2).map((o) => o[1]);
+}
+function groundShot(e, d) {
+  const o = new V3(e.pos.x, e.pos.y + 1.15, e.pos.z);
+  // aim a little ahead of where you will be, not where you are
+  const T = d / (GROUND_SPD + Math.hypot(P.vel.x, P.vel.z)), lead = 0.55;
+  const ax = P.pos.x + P.vel.x * T * lead - o.x, az = P.pos.z + P.vel.z * T * lead - o.z, al = Math.hypot(ax, az) || 1;
+  const hx = ax / al, hz = az / al, rx = -hz, rz = hx;
+  const shot = (dirx, dirz, lat = 0, delay = 0, alt = 0, sp = GROUND_SPD) => {
+    const p = o.clone(); p.x += rx * lat; p.z += rz * lat;
+    const v = new V3(dirx * sp, 0, dirz * sp);
+    if (delay) setTimeoutSim(() => fireBullet(p, v, alt, 3.4, true), delay); else fireBullet(p, v, alt, 3.4, true);
+  };
+  const name = GROUND_SHOTS[e.shotK]; e.shotK = (e.shotK + 1 + (Math.random() * 2 | 0)) % GROUND_SHOTS.length;
+  if (name === '扇') { // a fan of nine, opening as it comes
+    for (let k = 0; k < 9; k++) { const a = (k - 4) * 0.075, c = Math.cos(a), s = Math.sin(a); shot(hx * c + rx * s, hz * c + rz * s, 0, 0, k & 1); }
+  } else if (name === '弧') { // a wall across the road with one gap in it
+    const gap = (Math.random() - 0.5) * 12;
+    for (let x = -15; x <= 15; x += 2.0) if (Math.abs(x - gap) > 3.4) shot(hx, hz, x, 0, 0);
+  } else if (name === '連') { // a stream of five, each aimed as it leaves
+    for (let k = 0; k < 5; k++) shot(hx, hz, 0, k * 0.14, 1, GROUND_SPD + 6);
+  } else { // two lines that close like scissors, crossing on your path
+    for (const sd of [-1, 1]) for (let k = 0; k < 6; k++) { const a = -sd * 0.11; const c = Math.cos(a), s = Math.sin(a); shot(hx * c + rx * s, hz * c + rz * s, sd * 9, k * 0.12, sd > 0 ? 1 : 0); }
+  }
+  // the cut leaves a low sweep of ink at the figure's feet
+  for (let k = 0; k < 8; k++) { const a = Math.atan2(hx, hz) - 0.8 + k / 7 * 1.6; fxAdd(FXN, 'ink', tmp.set(e.pos.x + Math.sin(a) * 2.5, e.pos.y + 0.8, e.pos.z + Math.cos(a) * 2.5), new V3(Math.sin(a) * 9, 0.5, Math.cos(a) * 9), 0.45, 1.4, 0.6, { drag: 3 }); }
+  sfx.volley();
 }
 function attackIjin(e, d, dy) {
   e.state = 'recover'; e.cool = ATK_COOL; e.ponged = false; e.arm.rotation.x = 1.2;

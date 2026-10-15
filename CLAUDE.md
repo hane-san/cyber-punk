@@ -19,11 +19,11 @@ A portrait-first mobile action prototype: a traveller in a straw hat and cape ri
 |---|---|
 | `base.js` | maths, hash/noise, `COL` palette, `store`, `BOARD` and settings `S` |
 | `map.js` | Tokyo: `DISTRICTS`/`KINDS`, the district field (`distAt`), water (`site`, `terrainH`, `coastZ`, `ISLANDS`), `Path` + `nearestPath` (rivers, arterials, expressways with `deck`/`ramps`), the local grid (`lineX`, `vPresent`, `localNear`), `ground(x,z,y)`, `roadNear`, `LANDMARKS` |
-| `look.js` | renderer, `U` shared uniforms, `ukiyoMat`/`glowMat`/`texMat`, canvas textures (signs, masks, FX), `Builder` (flat-shaded geometry), water, sky, far mountains, `MOODS`/`updateMood`, the ink post pass (`post`, `renderFrame`) |
-| `city.js` | colliders (`addCol`, `colNear`), global towers and landmarks, streamed chunks (`updateChunks`, `buildChunk`, `buildExpSeg`, `buildBlock`) |
+| `look.js` | renderer, `U` shared uniforms, `ukiyoMat`/`glowMat`/`neonMat`/`texMat`, canvas textures (signs, masks, FX), `Builder` (flat-shaded geometry), water, sky, far mountains, `MOODS`/`updateMood`, place skies (`SKIES`, `placeSky`), the ink post pass (`post`, `renderFrame`) |
+| `city.js` | colliders (`addCol`, `colNear`), neon-traditional parts (`eaveTier`, `neonTorii`, `GB.neon`), global towers and landmarks, streamed chunks (`updateChunks`, `buildChunk`, `buildExpSeg`, `buildBlock`) |
 | `rider.js` | board and rider model (`RIG`), cape cloth |
 | `ride.js` | `P` state, `stepPhysics` (Wind Lover core), `roadAffinity`, `autoHop`, `collide`, `wallImpact`, `deckWalls`, `resolveGround` |
-| `yokai.js` | particle systems (`fxAdd`), formations (`spawnFormation`, patterns, `bullets`), masked figures (`ijins`, `placeIjin`, wind-up and attack, `killIjin`) |
+| `yokai.js` | particle systems (`fxAdd`), formations (sky threat paused by `SKY_THREAT`), `bullets`, ground attacks (`groundShot`), masked figures (`ijins`, `placeIjin`, wind-up and attack, `killIjin`) |
 | `iai.js` | the stance and the cut (`IAI`), `kamaeSteer`, hit-stop, mie camera, `hurt`/`die` |
 | `sound.js` | `sfx`, procedural WebAudio |
 | `ui.js` | input (stick + hold for the stance), HUD, cartouche, stamp, map (東京絵図), sheets |

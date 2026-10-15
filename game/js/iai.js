@@ -127,6 +127,9 @@ const IAI = {
     const e = this.target;
     const d = e ? Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) : 999;
     this.near = lerp(this.near, this.state === 'kamae' && e ? smooth(70, 22, d) : 0, 1 - Math.exp(-6 * dtReal));
+    // the glide gives up speed a little at a time as the figure comes closer: most of it far out, about two
+    // thirds of it in the last stretch, so there is time to read the rounds and to time the release
+    if (this.state === 'kamae' && e && this.entrySp) this.kamaeV = Math.max(30, this.entrySp * lerp(0.92, 0.62, smooth(320, 45, d)));
     // time: frozen in the hit-stop, slowed after it, and slowed into the moment before the cut
     if (this.phase === 'in') {
       // the lunge runs in real time: velocity aimed at the figure's side each frame, so the motion stays continuous

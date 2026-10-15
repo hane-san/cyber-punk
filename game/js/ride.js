@@ -61,7 +61,7 @@ function getStartPoint(startId) {
 
 function stepPhysics(dt) {
   let sx = clamp(inp.jx + inp.kx, -1, 1), sy = clamp(inp.jy + inp.ky, -1, 1);
-  if (P.kamae) { sx *= 0.45; sy = 0; }        // in the stance the finger only nudges
+  if (P.kamae) { sx *= 0.8; sy = 0; }         // in the stance you can still lean out of a line of rounds
   if (P.stagger > 0 || P.dead) { sx = 0; sy = 0; }
   P.stagger = Math.max(0, P.stagger - dt); P.invuln = Math.max(0, P.invuln - dt);
   const steer = Math.sign(sx) * Math.pow(Math.abs(sx), 1.2);

@@ -41,14 +41,14 @@ function updateCamera(dt) {
     camPos.lerp(_mie, mw); _look.copy(C); _look.y += 2.0; lookSm.lerp(_look, mw);
   }
   camera.position.copy(camPos);
-  const rumble = sf * sf * 0.04 + shake;
+  const rumble = sf * sf * 0.09 + shake;
   if (rumble > 0) { camera.position.x += (Math.random() - 0.5) * rumble; camera.position.y += (Math.random() - 0.5) * rumble; }
   camera.position.y += suspY * 0.18;
   shake = Math.max(0, shake - dt * 1.5);
   camera.lookAt(lookSm);
   camera.rotateZ(clamp(P.yawRate, -2, 2) * 0.07 * sf * (1 - mw));
   dashPunch = Math.max(0, dashPunch - dt * 2.2);
-  const fov = (portrait ? 70 : 55) + sf * 14 * S.fovKick + dashPunch * 7 - kamaeK * 6 + mw * 4;
+  const fov = (portrait ? 70 : 55) + sf * 18 * S.fovKick + dashPunch * 7 - kamaeK * 6 + mw * 4;
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = lerp(camera.fov, fov, 1 - Math.exp(-6 * dt)); applyLens(); }
 }
 function updateRider(dt) {
@@ -79,7 +79,7 @@ function updateRider(dt) {
   RIG.glow.scale.setScalar(1.8 + sf * 1.4);
   updateCape(dt, P.vel);
 }
-let last = performance.now(), visT = 0;
+let last = performance.now(), visT = 0, ambT = 12;
 function frame(now) {
   requestAnimationFrame(frame);
   const dtReal = clamp((now - last) / 1000, 0, 0.05); last = now;
@@ -93,10 +93,12 @@ function frame(now) {
       for (let i = 0; i < sub; i++) stepPhysics(dt / sub);
     }
     updateChunks(false, P.pos.x, P.pos.z);
-    updateFormations(dt); updateBullets(dt); updateIjins(dt); updateFalling(dt); updateSlashes(dtReal);
+    updateFormations(dt); updateBullets(dt); updateIjins(dt); updateFalling(dt); updateLeaves(dt); updateSlashes(dtReal);
     updateHud(); updateCartouche(dtReal);
     sfx.update(Math.hypot(P.vel.x, P.vel.z), IAI.state === 'kamae', IAI.slow > 0);
     U.uTime.value += dt;
+    // far sounds of an empty city: a temple bell now and then, higurashi at dusk and dawn
+    ambT -= dtReal; if (ambT <= 0) { ambT = 22 + Math.random() * 30; if (Math.random() < 0.45) sfx.bell(); else if (moodPhase < 0.9 || (moodPhase > 1.9 && moodPhase < 2.9)) sfx.higurashi(); }
     updateRider(dt);
     if (LM.wheel) LM.wheel.rotation.z += dt * 0.03;
     fxUpdate(FXN, dt); fxUpdate(FXA, dt);
@@ -106,7 +108,7 @@ function frame(now) {
   sky.position.copy(camera.position); farGroup.position.set(camera.position.x, 0, camera.position.z);
   water.position.set(Math.round(camera.position.x / 100) * 100, WATER_Y, Math.round(camera.position.z / 100) * 100);
   post.uniforms.uTime.value = U.uTime.value;
-  post.uniforms.uSpeed.value = started ? smooth(40, 85, Math.hypot(P.vel.x, P.vel.z)) * (1 - post.uniforms.uMono.value) : 0;
+  post.uniforms.uSpeed.value = started ? smooth(34, 95, Math.hypot(P.vel.x, P.vel.z)) * (1 - post.uniforms.uMono.value) * (1 - post.uniforms.uFocus.value * 0.6) : 0;
   if (window.__ukCam) window.__ukCam(camera, player);
   renderFrame();
 }

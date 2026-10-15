@@ -19,6 +19,8 @@ function stamp(text, perfect, combo) {
   el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
 }
 
+function maku(perfect) { const el = $('#maku'); el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); }
+
 // ---- HUD
 const spdEl = $('#spd'), sealEls = [...document.querySelectorAll('#seals i')], soulsEl = $('#souls');
 let hudSouls = -1;
@@ -138,7 +140,7 @@ function drawMap() {
 }
 
 // ---- sheets
-const TIMES = ['移ろう', '暁', '昼', '夕', '宵', '霞'];
+const TIMES = ['移ろう', '夕', '宵', '暁', '霞', '昼'];
 function refreshMenu() {
   $('#mTime').textContent = `時刻：${TIMES[moodFix + 1]}`; $('#mSound').textContent = `音：${sfx.on ? 'あり' : 'なし'}`; $('#mThreat').textContent = `妖：${threatOn ? '出る' : '出ない'}`;
   $('#recDist').textContent = (P.dist / 1000).toFixed(1); $('#recSouls').textContent = P.souls;
@@ -150,7 +152,7 @@ function togglePause(force) {
 }
 $('#btnMenu').addEventListener('click', () => togglePause());
 $('#mClose').addEventListener('click', () => togglePause(false));
-$('#mTime').addEventListener('click', () => { moodFix = moodFix >= 4 ? -1 : moodFix + 1; store.set('ukiyo.mood2', moodFix); refreshMenu(); });
+$('#mTime').addEventListener('click', () => { moodFix = moodFix >= 4 ? -1 : moodFix + 1; store.set('ukiyo.mood3', moodFix); refreshMenu(); });
 $('#mSound').addEventListener('click', () => { sfx.toggle(); refreshMenu(); });
 $('#mThreat').addEventListener('click', () => { threatOn = !threatOn; store.set('ukiyo.threat', threatOn); if (!threatOn) { for (const f of forms) if (f.mode !== 'pass') f.done = true; for (const e of ijins) e.alive = false, e.deadT = 9; } refreshMenu(); });
 $('#mHome').addEventListener('click', () => { placeStart(); togglePause(false); });

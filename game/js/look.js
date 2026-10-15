@@ -14,7 +14,7 @@ const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.5, 26
 // shared uniforms: every print material reads the same light, mist and hour
 const U = {
   uSun: { value: new V3(-0.6, 0.3, 0.3).normalize() }, uLight: { value: new THREE.Color(1, 1, 1) }, uShade: { value: new THREE.Color(0.6, 0.62, 0.75) },
-  uMist: { value: new THREE.Color(COL.paper) }, uFog: { value: new THREE.Vector2(420, 2300) }, uLowMist: { value: 0.55 }, uWash: { value: new THREE.Color(0xeef0f2) }, uWashK: { value: 0.2 },
+  uMist: { value: new THREE.Color(COL.paper) }, uFog: { value: new THREE.Vector2(420, 2300) }, uLowMist: { value: 0.55 }, uWash: { value: new THREE.Color(0xeef0f2) }, uWashK: { value: 0.12 },
   uNight: { value: 0.3 }, uTime: { value: 0 },
 };
 const GL_COMMON = `
@@ -41,8 +41,8 @@ varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vWin; varyin
 void main(){
   vec3 n = normalize(vN);
   float l = dot(n, uSun);
-  vec3 tint = mix(uShade, uLight, smoothstep(-0.45, 0.55, l));
-  tint *= 0.94 + 0.08 * n.y;
+  // Wind Lover light: a hemisphere from sky to ground, with a soft sun on top
+  vec3 tint = mix(uShade, uLight, 0.5 + 0.5 * n.y) * 0.74 + uLight * max(l, 0.0) * 0.36;
   vec3 col = vCol * tint, glow = vec3(0.0);
   float w = vWin, vert = 1.0 - step(0.4, abs(n.y));
   vec2 fc = vec2(dot(vWp.xz, normalize(vec2(-n.z, n.x) + 1e-5)), vWp.y);
@@ -392,15 +392,15 @@ mountain(12, -58, 17500, 520, 2200, 2, 21, 2);           // Tsukuba's twin peaks
 // ---- moods: pale skies after Wind Lover. The hour drifts through dawn, a gold day, an amber evening and the
 // lilac blue hour, when the windows, signs and lanterns come on; it never goes fully dark.
 const MOODS = [
-  { name: '暁', top: 0x8e9ccc, mid: 0xc4c8e2, hor: 0xf3d9d2, band: 0xfbeee8, sun: 0xffd0bc, mist: 0xeedfdc, light: 0xfff6f0, shade: 0xc7c4d8, wash: 0xf4ece8, night: 0.15, az: -0.35, el: 0.08 },
-  { name: '昼', top: 0x7aa0cc, mid: 0xb9cfe6, hor: 0xf2e8cc, band: 0xffffff, sun: 0xfff0c8, mist: 0xece8d8, light: 0xfffcf2, shade: 0xc4cad6, wash: 0xf1f0ea, night: 0.0, az: 1.3, el: 0.6 },
-  { name: '夕', top: 0x9a8fb8, mid: 0xc9b8cc, hor: 0xf4d2b4, band: 0xfde9d6, sun: 0xffc49a, mist: 0xf0dccb, light: 0xfff0e0, shade: 0xc4b8c8, wash: 0xf5e8dc, night: 0.3, az: -2.75, el: 0.07 },
-  { name: '宵', top: 0x5f6fa8, mid: 0x8b86c2, hor: 0xd9cde6, band: 0xe8e0f0, sun: 0xf0d8ff, mist: 0xbfbcd8, light: 0xd8d4ee, shade: 0x9c9cc4, wash: 0xd8d6ec, night: 0.85, az: 0.9, el: 0.35 },
-  { name: '霞', top: 0x6ea4b6, mid: 0xa8cad2, hor: 0xd8ebe6, band: 0xf2faf8, sun: 0xe0fff4, mist: 0xdce9e4, light: 0xf6fffc, shade: 0xbcd0d0, wash: 0xeaf2f0, night: 0.05, az: 0.2, el: 0.4 },
+  { name: '夕', top: 0x8f86a8, mid: 0xc2b2bc, hor: 0xf0cfae, band: 0xf8e4d0, sun: 0xffbf8c, mist: 0xe6d2c0, light: 0xffeedc, shade: 0xa49cb2, wash: 0xefe0d2, night: 0.3, az: -2.75, el: 0.05 },
+  { name: '宵', top: 0x56628f, mid: 0x7f7aa8, hor: 0xc8bccf, band: 0xdcd2e2, sun: 0xf0d8ff, mist: 0xaaa6c2, light: 0xc8c4de, shade: 0x7c7ca4, wash: 0xc8c6dc, night: 0.85, az: 0.9, el: 0.35 },
+  { name: '暁', top: 0x8a94b8, mid: 0xbfc0d6, hor: 0xeed6cc, band: 0xf8ebe4, sun: 0xffcdb6, mist: 0xe4d8d4, light: 0xfff2ea, shade: 0xb2aec4, wash: 0xeee4de, night: 0.15, az: -0.35, el: 0.07 },
+  { name: '霞', top: 0x7f9fae, mid: 0xaec4c8, hor: 0xdfe6dc, band: 0xf2f6f0, sun: 0xeef8e8, mist: 0xd8e0d8, light: 0xf2f6ee, shade: 0xb0c0bc, wash: 0xe6ece4, night: 0.05, az: 0.2, el: 0.4 },
+  { name: '昼', top: 0x8aa2c0, mid: 0xbccbdc, hor: 0xeee4c8, band: 0xfbf8ee, sun: 0xfff0c8, mist: 0xe6e0cc, light: 0xfff8ea, shade: 0xb8bcc8, wash: 0xeeeae0, night: 0.0, az: 1.3, el: 0.6 },
 ].map((m) => ({ ...m, c: Object.fromEntries(['top', 'mid', 'hor', 'band', 'sun', 'mist', 'light', 'shade', 'wash'].map((k) => [k, new THREE.Color(m[k])])) }));
-const DAY_PERIOD = 720; // seconds for a full turn of the hour
-let moodFix = store.get('ukiyo.mood2', -1); // -1 = the hour moves; otherwise a fixed mood index
-let moodPhase = 1.6;
+const DAY_PERIOD = 900; // seconds for a full turn of the hour
+let moodFix = store.get('ukiyo.mood3', -1); // -1 = the hour moves; otherwise a fixed mood index
+let moodPhase = 0.1;
 const _m = { top: new THREE.Color(), mid: new THREE.Color(), hor: new THREE.Color(), band: new THREE.Color(), sun: new THREE.Color(), mist: new THREE.Color(), light: new THREE.Color(), shade: new THREE.Color(), wash: new THREE.Color() };
 function updateMood(dt) {
   if (moodFix >= 0) moodPhase = lerp(moodPhase, moodFix, 1 - Math.exp(-1.5 * dt)); else moodPhase = (moodPhase + dt * MOODS.length / DAY_PERIOD) % MOODS.length;
@@ -426,63 +426,74 @@ const post = new THREE.ShaderMaterial({
   uniforms: {
     tCol: { value: null }, tDep: { value: null }, uRes: { value: new THREE.Vector2(1, 1) }, uNear: { value: camera.near }, uFar: { value: camera.far },
     uInk: { value: new THREE.Color(COL.sumi) }, uInkFar: { value: new THREE.Color(COL.ai) }, uMono: { value: 0 }, uFlash: { value: new THREE.Color(1, 1, 1) }, uFlashK: { value: 0 },
-    uRadial: { value: 0 }, uRadC: { value: new THREE.Vector2(0.5, 0.5) }, uVig: { value: 0 }, uFocus: { value: 0 }, uTime: { value: 0 }, uPR: { value: PR }, uShu: { value: new THREE.Color(COL.shu) }, uPaper: { value: new THREE.Color(COL.paper) }, uSumi: { value: new THREE.Color(COL.sumi) }, uSpeed: { value: 0 }, uLineK: { value: 0.32 },
+    uRadial: { value: 0 }, uRadC: { value: new THREE.Vector2(0.5, 0.5) }, uVig: { value: 0 }, uFocus: { value: 0 }, uTime: { value: 0 }, uPR: { value: PR }, uShu: { value: new THREE.Color(COL.shu) }, uPaper: { value: new THREE.Color(COL.paper) }, uSumi: { value: new THREE.Color(COL.sumi) }, uSpeed: { value: 0 }, uLineK: { value: 0.0 }, uSlash: { value: new V3(0.5, 0, 0) }, uSplit: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
   fragmentShader: `
 uniform sampler2D tCol; uniform sampler2D tDep; uniform vec2 uRes; uniform float uNear; uniform float uFar;
 uniform vec3 uInk; uniform vec3 uInkFar; uniform float uMono; uniform vec3 uFlash; uniform float uFlashK; uniform float uRadial; uniform vec2 uRadC;
-uniform float uVig; uniform float uFocus; uniform float uTime; uniform float uPR; uniform vec3 uShu; uniform vec3 uPaper; uniform vec3 uSumi; uniform float uSpeed; uniform float uLineK;
+uniform float uVig; uniform float uFocus; uniform float uTime; uniform float uPR; uniform vec3 uShu; uniform vec3 uPaper; uniform vec3 uSumi; uniform float uSpeed; uniform float uLineK; uniform vec3 uSlash; uniform float uSplit;
 varying vec2 vUv;
 float W(vec2 uv){ float d = texture2D(tDep, uv).x; return (uFar - d * (uFar - uNear)) / (uNear * uFar); }
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
 float lum(vec3 c){ return dot(c, vec3(0.3, 0.59, 0.11)); }
 void main(){
-  vec2 px = 1.0 / uRes;
-  float wc = W(vUv), z = 1.0 / wc;
-  float o = mix(1.6, 1.0, smoothstep(10.0, 90.0, z)) * max(1.0, uPR * 0.7);
-  vec2 dx = vec2(px.x * o, 0.0), dy = vec2(0.0, px.y * o);
-  float wl = W(vUv - dx), wr = W(vUv + dx), wu = W(vUv + dy), wd = W(vUv - dy);
-  float L = (wl + wr + wu + wd - 4.0 * wc) / wc;
-  float mx = max(max(wl, wr), max(wu, wd));
-  float Lp = (wl + wr + wu + wd - 4.0 * wc) / mx;
-  float e1 = smoothstep(0.03, 0.08, -L);                                       // silhouettes and outer corners, on the near side
-  float e2 = smoothstep(0.035, 0.09, Lp) * (1.0 - smoothstep(0.22, 0.36, Lp)); // inner creases
-  vec3 cc = texture2D(tCol, vUv).rgb;
-  // the lines are only a pale key block: soft, thin, and gone into the mist with distance
-  float fade = 1.0 - smoothstep(150.0, 1400.0, z);
-  if (z > uFar * 0.9) fade = 0.0;
-  float ink = clamp(max(e1, e2 * 0.5) * fade, 0.0, 1.0) * (uLineK + uMono * (1.0 - uLineK));
-  vec3 inkC = mix(uInk, uInkFar, smoothstep(60.0, 900.0, z));
+  vec2 px = 1.0 / uRes, asp = vec2(uRes.x / uRes.y, 1.0);
+  // the cut: the frame splits along the slash and the two halves slide apart
+  vec2 sdir = vec2(cos(uSlash.x), sin(uSlash.x)), snrm = vec2(-sdir.y, sdir.x);
+  float sside = dot((vUv - 0.5) * asp, snrm) - uSlash.y;
+  vec2 uv = vUv + sdir / asp * sign(sside) * uSplit * 0.03;
+  // speed: a radial blur that drags the edges of the frame toward the vanishing point
+  vec2 vc = vec2(0.5, 0.56);
+  vec3 cc = texture2D(tCol, uv).rgb;
+  if (uSpeed > 0.01) {
+    vec2 dv = (uv - vc) * 0.014 * uSpeed; vec3 acc = cc; float ws = 1.0;
+    for (int k = 1; k <= 6; k++) { float w = 1.0 - float(k) / 7.0; acc += texture2D(tCol, uv - dv * float(k)).rgb * w; ws += w; }
+    cc = mix(cc, acc / ws, smoothstep(0.12, 0.55, length((uv - vc) * asp)));
+  }
   vec3 col = cc;
-  // washi: soft cloud of fibre and a fine tooth; independent of resolution
-  vec2 sp = gl_FragCoord.xy / uPR;
-  float grain = vn(sp * 0.45) * 0.5 + vn(sp * 0.07 + 13.0) * 0.5;
-  float fib = vn(vec2(sp.x * 0.03, sp.y * 0.9) + 7.0);
-  col *= 0.97 + 0.03 * grain + 0.015 * (fib - 0.5);
-  // the strike: the frame turns to sumi on paper with vermilion kept
-  float lu = lum(col), red = col.r - max(col.g, col.b);
-  vec3 mono = lu > 0.62 ? uPaper : (lu > 0.45 ? mix(uPaper, uSumi, 0.16) : (lu > 0.3 ? mix(uPaper, uSumi, 0.38) : mix(uPaper, uSumi, 0.66)));
-  mono = mix(mono, uShu, smoothstep(0.12, 0.28, red));
-  col = mix(col, mono, uMono);
-  col = mix(col, mix(inkC, uSumi, uMono), ink);
+  // depth silhouettes, drawn only in the kabuki frame
+  float ink = 0.0;
+  if (uMono > 0.01 || uLineK > 0.01) {
+    float wc = W(uv), z = 1.0 / wc, o = 1.6 * max(1.0, uPR * 0.7);
+    vec2 dx = vec2(px.x * o, 0.0), dy = vec2(0.0, px.y * o);
+    float L = (W(uv - dx) + W(uv + dx) + W(uv + dy) + W(uv - dy) - 4.0 * wc) / wc;
+    ink = smoothstep(0.03, 0.08, -L) * (1.0 - smoothstep(150.0, 1400.0, z)) * (z > uFar * 0.9 ? 0.0 : 1.0);
+  }
+  // the nostalgic grade: faded colour, a little sepia, lifted blacks and soft whites, moving film grain
+  float lu = lum(col);
+  col = mix(col, vec3(lu), 0.2);
+  col = mix(col, col * vec3(1.06, 0.98, 0.86), 0.4);
+  col = col * 0.86 + vec3(0.075, 0.068, 0.078);
+  col += (h21(gl_FragCoord.xy / uPR + fract(uTime * 7.13) * 97.0) - 0.5) * 0.05;
+  // the kabuki frame (見得): the world goes to black, the figures stand out white, vermilion is kept
+  float red = cc.r - max(cc.g, cc.b);
+  vec3 kab = mix(uSumi * 0.6, uPaper, step(lum(cc), 0.5));
+  kab = mix(kab, uShu, smoothstep(0.12, 0.26, red));
+  col = mix(col, kab, uMono);
+  col = mix(col, uPaper, ink * uMono);
+  // the slash itself: a white stroke edged with vermilion, right across the frame
+  float sd = abs(sside);
+  col = mix(col, uShu, (1.0 - smoothstep(0.008, 0.02, sd)) * uSlash.z);
+  col = mix(col, vec3(1.0), (1.0 - smoothstep(0.003, 0.009, sd)) * uSlash.z);
   // focus lines (集中線) toward the strike
-  vec2 q = (vUv - uRadC) * vec2(uRes.x / uRes.y, 1.0);
+  vec2 q = (vUv - uRadC) * asp;
   float a = atan(q.y, q.x) / 3.14159 * 110.0, r = length(q);
   float ln = step(0.55, h21(vec2(floor(a), 3.0))) * step(fract(a), 0.32 + 0.3 * h21(vec2(floor(a), 9.0))) * smoothstep(0.18 + 0.2 * h21(vec2(floor(a), 5.0)), 0.75, r);
-  col = mix(col, uSumi, ln * uRadial);
-  // speed streaks, as in Wind Lover: thin pale lines rushing out from the vanishing point
-  vec2 sq = (vUv - vec2(0.5, 0.56)) * vec2(uRes.x / uRes.y, 1.0);
+  col = mix(col, mix(uSumi, uPaper, uMono), ln * uRadial);
+  // speed streaks rushing out of the vanishing point
+  vec2 sq = (vUv - vc) * asp;
   float sa = atan(sq.y, sq.x) / 3.14159 * 70.0, sr = length(sq), sid = floor(sa);
-  float run = fract(h21(vec2(sid, 1.0)) * 7.0 - uTime * (1.2 + 2.0 * h21(vec2(sid, 2.0))));
-  float streak = step(0.8, h21(vec2(sid, floor(uTime * 2.0 + h21(vec2(sid, 4.0)) * 5.0)))) * step(fract(sa), 0.09) * smoothstep(0.2, 0.55, sr) * smoothstep(0.0, 0.25, run) * (1.0 - smoothstep(0.35, 0.6, run));
-  col = mix(col, vec3(1.0), streak * uSpeed * 0.75);
-  // vignettes: vermilion for danger, sumi wash for the held breath of the stance
-  float v = smoothstep(0.42, 1.05, length((vUv - 0.5) * vec2(1.0, 1.25)) * 1.45);
+  float run = fract(h21(vec2(sid, 1.0)) * 7.0 - uTime * (1.6 + 2.6 * h21(vec2(sid, 2.0))));
+  float streak = step(0.72, h21(vec2(sid, floor(uTime * 3.0 + h21(vec2(sid, 4.0)) * 5.0)))) * step(fract(sa), 0.1) * smoothstep(0.16, 0.5, sr) * smoothstep(0.0, 0.2, run) * (1.0 - smoothstep(0.3, 0.6, run));
+  col = mix(col, vec3(1.0), streak * uSpeed * 0.8);
+  // vignettes: a soft one always, vermilion for danger, and the dark held breath of the stance
+  float v = smoothstep(0.38, 1.05, length((vUv - 0.5) * vec2(1.0, 1.25)) * 1.45);
+  col *= 1.0 - v * 0.24;
   col = mix(col, uShu * 0.85, v * uVig);
-  col = mix(col, vec3(lu) * vec3(1.02, 0.98, 0.92), uFocus * 0.35);
-  col = mix(col, uSumi * 1.6, v * uFocus * 0.4);
+  col = mix(col, vec3(lum(col)) * vec3(0.95, 0.97, 1.05), uFocus * 0.7);
+  col *= 1.0 - uFocus * (0.38 + 0.4 * v);
   col = mix(col, uFlash, uFlashK);
   gl_FragColor = vec4(col, 1.0);
 }`,

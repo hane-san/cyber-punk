@@ -66,6 +66,6 @@ const store = {
 
 // The board: the Wind Lover hover-board handling, tuned up for city streets.
 // roll: how fast the lean answers; grip: sideways bite; cruise/maxSpeed in m/s.
-const BOARD = { name: '電動板', hover: 0.55, grip: 6.2, accel: 17, roll: 5.2, defaults: { maxSpeed: 88, cruise: 36, inertia: 1.2, gravity: 30, turn: 1.0, camDist: 12.5, fovKick: 1.15, auto: true } };
+const BOARD = { name: '電動板', hover: 0.55, grip: 6.2, accel: 17, roll: 5.2, defaults: { maxSpeed: 100, cruise: 40, inertia: 1.2, gravity: 30, turn: 1.0, camDist: 12.5, fovKick: 1.3, auto: true } };
 const S = { ...BOARD.defaults, ...(store.get('ukiyo.settings.v2', {}) || {}) };
 const saveS = () => store.set('ukiyo.settings.v2', S);

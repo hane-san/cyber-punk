@@ -3,8 +3,11 @@
 // pass), and the masked figures that stand in the road with a naginata.
 
 // ---- particles: two point systems (ink-like and light-like) drawing from one atlas, one draw call each
-const ATLAS_CELLS = ['ink', 'wave', 'petal', 'maple', 'cloud', 'spark', 'dot', 'soul'];
-const fxAtlas = canvasTex(1024, 128, (g) => { ATLAS_CELLS.forEach((k, i) => { g.drawImage(FX[k].image, i * 128, 0, 128, 128); }); });
+const ATLAS_CELLS = ['ink', 'wave', 'petal', 'maple', 'cloud', 'spark', 'dot', 'soul', 'tama', 'tamaB'];
+// the rounds: a vermilion (or indigo) bead with a white heart and a dark rim, so they read against a pale sky
+function tamaTex(core, rim) { return canvasTex(128, 128, (g) => { g.fillStyle = rim; g.beginPath(); g.arc(64, 64, 46, 0, TAU); g.fill(); g.fillStyle = core; g.beginPath(); g.arc(64, 64, 40, 0, TAU); g.fill(); const r = g.createRadialGradient(58, 58, 2, 64, 64, 30); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.6, 'rgba(255,250,240,0.85)'); r.addColorStop(1, 'rgba(255,250,240,0)'); g.fillStyle = r; g.beginPath(); g.arc(64, 64, 30, 0, TAU); g.fill(); }); }
+FX.tama = tamaTex('#d9472b', '#3a1418'); FX.tamaB = tamaTex('#5a4fa0', '#1c1838');
+const fxAtlas = canvasTex(1280, 128, (g) => { ATLAS_CELLS.forEach((k, i) => { g.drawImage(FX[k].image, i * 128, 0, 128, 128); }); });
 const CELL_OF = Object.fromEntries(ATLAS_CELLS.map((k, i) => [k, i]));
 function makeFxSystem(max, additive) {
   const geo = new THREE.BufferGeometry();
@@ -20,14 +23,14 @@ void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vD = -mv.z; gl_Poi
     fragmentShader: `uniform sampler2D uMap; uniform vec3 uMist; uniform vec2 uFog; varying float vRot; varying float vAlpha; varying float vCell; varying vec3 vTint; varying float vD;
 void main(){ vec2 p = gl_PointCoord - 0.5; float c = cos(vRot), s = sin(vRot); p = vec2(c * p.x - s * p.y, s * p.x + c * p.y) + 0.5;
   if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) discard;
-  vec4 t = texture2D(uMap, vec2((vCell + p.x) / 8.0, 1.0 - p.y)); t.rgb *= vTint;
+  vec4 t = texture2D(uMap, vec2((vCell + p.x) / 10.0, 1.0 - p.y)); t.rgb *= vTint;
   float m = smoothstep(uFog.x, uFog.y, vD);
   ${additive ? 'gl_FragColor = vec4(t.rgb * t.a * vAlpha * (1.0 - m), 1.0);' : 'if (t.a * vAlpha < 0.02) discard; gl_FragColor = vec4(mix(t.rgb, uMist, m * 0.8), t.a * vAlpha);'} }`,
   });
   const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);
   return { geo, mat, max, list: [], pts };
 }
-const FXN = makeFxSystem(900, false), FXA = makeFxSystem(1400, true);
+const FXN = makeFxSystem(1800, false), FXA = makeFxSystem(1200, true);
 function fxAdd(sys, cell, pos, vel, life, s0, s1, opt = {}) {
   if (sys.list.length >= sys.max) sys.list.shift();
   const p = { cell: CELL_OF[cell], p: pos.clone(), v: vel ? vel.clone() : new V3(), life, age: 0, s0, s1, rot: opt.rot ?? Math.random() * TAU, rv: opt.rv ?? 0, a0: opt.a ?? 1, grav: opt.grav ?? 0, drag: opt.drag ?? 0, tint: opt.tint || [1, 1, 1], fadeIn: opt.fadeIn || 0, sway: opt.sway || 0 };
@@ -103,7 +106,7 @@ const SHAPES = {
 };
 const SHAPE_KEYS = Object.keys(SHAPES);
 const forms = [], bullets = [];
-let formT = 3, assaultCD = 14, chaseCD = 10, threatOn = store.get('ukiyo.threat', true);
+let formT = 3, assaultCD = 6, chaseCD = 10, threatOn = store.get('ukiyo.threat', true);
 const BULLET_SPD = 56, DRONE_MAX = 64, CLOSE = 60;
 function spawnFormation(kind, mode) {
   const n = kind === 'kitsune' ? 14 : kind === 'crane' ? 5 + (Math.random() * 5 | 0) : 6 + (Math.random() * 8 | 0);
@@ -139,7 +142,7 @@ function updateFormations(dt) {
     spawnFormation(Math.random() < 0.6 ? 'crane' : 'kitsune', 'pass');
   }
   if (threatOn && started && !P.dead) {
-    if (assaultCD <= 0 && !forms.some((f) => f.mode === 'assault')) { assaultCD = 26 + Math.random() * 18 - (speed > 45 ? 8 : 0); spawnFormation('mask', 'assault'); }
+    if (assaultCD <= 0 && !forms.some((f) => f.mode === 'assault')) { assaultCD = 13 + Math.random() * 10 - (speed > 50 ? 4 : 0); spawnFormation('mask', 'assault'); }
     // slow riders are hunted from behind
     if (chaseCD <= 0 && !forms.some((f) => f.mode === 'chase')) { chaseCD = speed < 18 ? 8 : 24 + Math.random() * 14; spawnFormation('mask', 'chase'); }
   }
@@ -159,7 +162,7 @@ function updateFormations(dt) {
       tmp.addScaledVector(_v.set(-h.z, 0, h.x), Math.sin(f.t * 0.5) * 18);
       f.pos.lerp(tmp, 1 - Math.exp(-(f.t < 3 ? 0.9 : 2.2) * dt));
       f.fireT -= dt;
-      if (hold && f.t > 3.5 && f.fireT <= 0) { f.fireT = 1.8; pattern(f); f.pat = (f.pat + 1) % 6; }
+      if (hold && f.t > 3 && f.fireT <= 0) { f.fireT = 1.15; pattern(f); f.pat = (f.pat + 1 + (Math.random() * 2 | 0)) % PATTERNS.length; }
     }
     if (f.t > f.life || f.pos.distanceTo(P.pos) > 1600) f.done = true;
     // face the rider, lay the members out on the formation's plane
@@ -176,39 +179,41 @@ function updateFormations(dt) {
   }
   for (let i = forms.length - 1; i >= 0; i--) if (forms[i].done) { scene.remove(forms[i].g); forms.splice(i, 1); }
 }
-// chase volleys: a few hitodama aimed at where you are now
+// chase volleys: a ring of rounds round the line to where you are now
 function volley(f) {
-  for (const m of f.members) {
-    if (Math.random() < 0.55) continue;
-    m.obj.getWorldPosition(tmp);
-    tmp2.subVectors(P.pos, tmp).normalize().multiplyScalar(BULLET_SPD);
-    fireBullet(tmp, tmp2);
-  }
+  const o = f.pos.clone(), d = tmp2.subVectors(P.pos, o).normalize(), sx = new V3(-d.z, 0, d.x).normalize(), sy = new V3().crossVectors(sx, d);
+  const n = 18, rot = Math.random() * TAU;
+  for (let k = 0; k < n; k++) { const a = rot + k / n * TAU; const v = d.clone().multiplyScalar(BULLET_SPD).addScaledVector(sx, Math.cos(a) * 5).addScaledVector(sy, Math.sin(a) * 2.5); fireBullet(o, v, k & 1); }
   sfx.volley();
 }
-// assault patterns: rounds keep your pace and close at CLOSE m/s, so each takes about three seconds to arrive
+// assault patterns: geometric figures laid out flat over the road, opening as they come. The rounds keep your pace
+// and close at CLOSE m/s, so each figure takes about three seconds to arrive: read it, and slip through.
+const PATTERNS = ['花', '五芒', '渦', '格子', '輪', '蓮', '簾', '曼荼羅'];
 function pattern(f) {
   const h = _v.set(P.vel.x, 0, P.vel.z), sp = h.length(); if (sp > 1) h.multiplyScalar(1 / sp); else h.copy(fwd);
   const right = new V3(-h.z, 0, h.x), base = new V3(P.vel.x, 0, P.vel.z), origin = f.pos.clone();
-  const T = Math.max(1.5, origin.distanceTo(P.pos) / CLOSE), yv = (P.pos.y + 0.9 - origin.y) / T;
-  const shot = (lat, latV = 0, delay = 0, up = 0) => {
-    const v = base.clone().addScaledVector(h, -CLOSE).addScaledVector(right, latV); v.y = yv + up;
-    const p = origin.clone().addScaledVector(right, lat);
-    if (delay) setTimeoutSim(() => fireBullet(p.addScaledVector(v, 0), v), delay); else fireBullet(p, v);
+  const T = Math.max(1.5, origin.distanceTo(P.pos) / CLOSE), yv = (P.pos.y + 1.0 - origin.y) / T;
+  // (x, z): the figure's shape in the road plane, x across, z along; it opens at `open` m/s
+  const shot = (x, z, open, delay = 0, alt = 0, lat0 = 0) => {
+    const v = base.clone().addScaledVector(h, -CLOSE + z * open).addScaledVector(right, x * open); v.y = yv;
+    const p = origin.clone().addScaledVector(right, lat0);
+    if (delay) setTimeoutSim(() => fireBullet(p, v, alt), delay); else fireBullet(p, v, alt);
   };
-  const pat = f.pat;
-  if (pat === 0) { const gap = (Math.random() - 0.5) * 20; for (let x = -22; x <= 22; x += 2.3) if (Math.abs(x - gap) > 3.8) shot(x); }
-  else if (pat === 1) { for (let k = -7; k <= 7; k++) shot(0, k * 3.2); }
-  else if (pat === 2) { for (let k = 0; k < 20; k++) { const a = k / 20 * TAU; shot(Math.cos(a) * 1.5, Math.cos(a) * 5.5, 0, Math.sin(a) * 5.5); } }
-  else if (pat === 3) { for (const x of [-9, 0, 9]) for (let k = 0; k < 6; k++) shot(x, 0, k * 0.11); }
-  else if (pat === 4) { for (let k = 0; k < 28; k++) { const a = k * 0.42; shot(Math.cos(a) * 3, Math.cos(a) * 6, k * 0.045, Math.sin(a) * 3); } }
-  else { for (const off of [0, 1.15]) for (let x = -21; x <= 21; x += 4.6) shot(x + off * 2.3, 0, off * 0.55); }
-  sfx.volley();
+  const rot = Math.random() * TAU, name = PATTERNS[f.pat];
+  if (name === '花') { const k = 3 + (Math.random() * 4 | 0); for (let i = 0; i < 72; i++) { const a = i / 72 * TAU, r = Math.abs(Math.cos(k * a / 2)); shot(r * Math.cos(a + rot), r * Math.sin(a + rot), 9); } }
+  else if (name === '五芒') { const V = [0, 1, 2, 3, 4].map((i) => [Math.cos(rot + i * TAU * 2 / 5), Math.sin(rot + i * TAU * 2 / 5)]); for (let e = 0; e < 5; e++) for (let t = 0; t < 12; t++) { const A = V[e], B = V[(e + 1) % 5], u = t / 12; shot(lerp(A[0], B[0], u), lerp(A[1], B[1], u), 10, 0, e & 1); } }
+  else if (name === '渦') { for (let arm = 0; arm < 5; arm++) for (let k = 0; k < 14; k++) { const a = rot + arm * TAU / 5 + k * 0.32; shot(Math.cos(a), Math.sin(a), 8, k * 0.06, arm & 1); } }
+  else if (name === '格子') { for (let row = 0; row < 4; row++) { const g1 = (Math.random() - 0.5) * 30, g2 = g1 + (Math.random() < 0.5 ? 1 : -1) * 12; for (let x = -26; x <= 26; x += 2.6) if (Math.abs(x - g1) > 3.6 && Math.abs(x - g2) > 3.6) shot(0, 0, 0, row * 0.28, row & 1, x); } }
+  else if (name === '輪') { for (let ring = 0; ring < 3; ring++) for (let i = 0; i < 32; i++) { const a = rot + ring * 0.1 + i / 32 * TAU; shot(Math.cos(a), Math.sin(a), 7 + ring * 2.5, ring * 0.32, ring & 1); } }
+  else if (name === '蓮') { for (let t = 0; t < 2; t++) for (let e = 0; e < 6; e++) for (let u = 0; u < 8; u++) { const a0 = rot + (t ? Math.PI / 6 : 0) + e * TAU / 6, a1 = a0 + TAU / 3, q = u / 8; shot(lerp(Math.cos(a0), Math.cos(a1), q), lerp(Math.sin(a0), Math.sin(a1), q), 9, t * 0.35, t); } }
+  else if (name === '簾') { for (const off of [0, 1]) { const gap = (Math.random() - 0.5) * 22; for (let x = -26; x <= 26; x += 2.2) if (Math.abs(x - gap) > 3.8) shot(0, 0, 0, off * 0.6, off, x + off * 1.1); } }
+  else { for (let i = 0; i < 48; i++) { const a = rot + i / 48 * TAU; shot(Math.cos(a), Math.sin(a), 8); const b = -rot * 1.3 + i / 48 * TAU, r = 0.55 + 0.45 * Math.abs(Math.sin(4 * b)); shot(r * Math.cos(b), r * Math.sin(b), 11, 0.3, 1); } }
+  sfx.volley(); f.lastName = name;
 }
 const simTimers = [];
 function setTimeoutSim(fn, d) { simTimers.push({ t: d, fn }); }
-function fireBullet(p, v) {
-  const b = { p: p.clone(), v: v.clone(), life: 7, grazed: false, fx: fxAdd(FXA, 'soul', p, v, 7, 3.6, 3.6, { a: 1, tint: [0.85, 0.95, 1] }) };
+function fireBullet(p, v, alt = 0) {
+  const b = { p: p.clone(), v: v.clone(), life: 7, grazed: false, fx: fxAdd(FXN, alt ? 'tamaB' : 'tama', p, v, 7, 1.6, 1.6, { a: 1, rot: 0 }) };
   bullets.push(b);
 }
 function updateBullets(dt) {
@@ -217,9 +222,9 @@ function updateBullets(dt) {
     const b = bullets[i]; b.life -= dt; b.p.addScaledVector(b.v, dt);
     if (b.fx) { b.fx.p.copy(b.p); b.fx.v.set(0, 0, 0); }
     const d = b.p.distanceTo(P.pos);
-    if (d < 1.5 && !P.shelter && P.invuln <= 0 && !P.dead) { hurt('人魂'); b.life = 0; fxSparks(b.p, 0, 0, 10); }
+    if (d < 1.3 && !P.shelter && P.invuln <= 0 && !P.dead) { hurt('人魂'); b.life = 0; fxSparks(b.p, 0, 0, 10); }
     else if (d < 4.8 && !b.grazed && !P.dead) { b.grazed = true; graze(); }
-    if (b.life <= 0 || b.p.y < ground(b.p.x, b.p.z, b.p.y).h - 1) { if (b.fx) b.fx.age = b.fx.life; bullets.splice(i, 1); }
+    if (b.life <= 0 || b.p.y < P.pos.y - 8 || d > 900) { if (b.fx) b.fx.age = b.fx.life; bullets.splice(i, 1); }
   }
 }
 let grazeChain = 0, grazeT = 0;
@@ -258,7 +263,7 @@ function makeIjin(R) {
   shadow.position.y = 0.08; g.add(shadow);
   return { g, head, mane, arm, ring, mark, mask, type };
 }
-const WINDUP = 0.95, WINDOW = 0.3, PERFECT = 0.12, ATK_R = 10.5, ATK_COOL = 1.6;
+const WINDUP = 0.95, WINDOW = 0.26, PERFECT = 0.11, ATK_R = 10.5, ATK_COOL = 1.6;
 const ijins = [];
 let ijinDist = 260;
 function spawnIjin() {
@@ -279,10 +284,17 @@ function placeIjin(x, z, y) {
   ijins.push(e); return e;
 }
 function updateIjins(dt) {
-  if (threatOn && started && !P.dead) { ijinDist -= Math.hypot(P.vel.x, P.vel.z) * dt; if (ijinDist <= 0 && ijins.filter((e) => e.alive).length < 4) { ijinDist = 330 + Math.random() * 380; spawnIjin(); } }
+  if (threatOn && started && !P.dead) { ijinDist -= Math.hypot(P.vel.x, P.vel.z) * dt; if (ijinDist <= 0 && ijins.filter((e) => e.alive).length < 4) { ijinDist = 240 + Math.random() * 260; spawnIjin(); } }
   for (const e of ijins) {
     e.t += dt;
-    if (!e.alive) { e.deadT += dt; continue; }
+    if (!e.alive) {
+      e.deadT += dt;
+      if (e.fall) { // a kabuki fall: the cut figure goes over backwards, then is gone in a breath of sumi
+        e.g.rotation.x = -1.45 * smooth(0.05, 0.9, e.deadT); e.g.position.y = e.pos.y - 0.6 * smooth(0.5, 1.0, e.deadT);
+        if (e.deadT > 1.0 && e.g.visible) { e.g.visible = false; fxInk(tmp.copy(e.pos).setY(e.pos.y + 0.8), 16, 5); }
+      }
+      continue;
+    }
     const dx = P.pos.x - e.pos.x, dz = P.pos.z - e.pos.z, d = Math.hypot(dx, dz), dy = P.pos.y - (e.pos.y + HOVER);
     const vx = P.vel.x, vz = P.vel.z, closing = -(dx * vx + dz * vz) / Math.max(d, 0.01);
     if (d < 140) e.face = lerp(e.face, e.face + wrapA(Math.atan2(dx, dz) - e.face), 1 - Math.exp(-4 * dt));
@@ -331,7 +343,7 @@ function killIjin(e, perfect) {
     falling.push({ o: half, v, rv: new V3((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9, sd * 6), t: 0 });
     half.children[0].scale.x = 0.5; half.children[0].position.x = sd * 0.21;
   }
-  e.g.visible = false;
+  e.mask.visible = false; e.fall = true; e.g.rotation.order = 'YXZ';
   const c = tmp.copy(e.pos); c.y += 1.6;
   fxInk(c, perfect ? 34 : 22, 9);
   for (let k = 0; k < 8; k++) fxAdd(FXN, 'wave', c, new V3((Math.random() - 0.5) * 22, 6 + Math.random() * 8, (Math.random() - 0.5) * 22), 1.1, 2.2, 4.2, { grav: 10, rv: (Math.random() - 0.5) * 4 });
@@ -340,6 +352,15 @@ function killIjin(e, perfect) {
   for (let k = 0; k < 12; k++) fxAdd(FXA, 'soul', c, new V3((Math.random() - 0.5) * 6, 3 + Math.random() * 6, (Math.random() - 0.5) * 6), 1.2, 2, 0.4, { tint: [0.8, 0.95, 1] });
 }
 const falling = [];
+// leaves and petals drifting through the empty city; at speed they rush past
+let leafT = 0;
+function updateLeaves(dt) {
+  leafT -= dt; if (leafT > 0) return; leafT = 0.09;
+  const ahead = tmp.copy(P.pos).addScaledVector(fwd, 25 + Math.random() * 60);
+  ahead.x += (Math.random() - 0.5) * 50; ahead.z += (Math.random() - 0.5) * 50; ahead.y = P.pos.y + 2 + Math.random() * 14;
+  const autumn = moodPhase < 1.5 || moodPhase > 4.5, cell = Math.random() < (autumn ? 0.75 : 0.2) ? 'maple' : 'petal';
+  fxAdd(FXN, cell, ahead, new V3((Math.random() - 0.5) * 2, -1.2, (Math.random() - 0.5) * 2), 7, 0.45, 0.45, { rv: (Math.random() - 0.5) * 4, sway: 2.5, a: 0.9, fadeIn: 0.1 });
+}
 function updateFalling(dt) {
   for (let i = falling.length - 1; i >= 0; i--) {
     const f = falling[i]; f.t += dt; f.v.y -= 16 * dt; f.o.position.addScaledVector(f.v, dt); f.o.rotation.x += f.rv.x * dt; f.o.rotation.y += f.rv.y * dt; f.o.rotation.z += f.rv.z * dt;

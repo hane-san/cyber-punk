@@ -12,18 +12,24 @@ The game is meant to become an open-world RPG. This first prototype settles **th
 
 There are no turrets. You survive by going fast and slipping through, and you answer the masked figures with a single cut.
 
-## The look: a pale print after Wind Lover
+## The look: Wind Lover, made Japanese and more wistful
 
-The first cut was a hard woodblock print: heavy sumi lines and deep colours. The owner preferred the pale Wind Lover look, so the picture now follows it. It is closer to a shin-hanga print (Kawase Hasui) than to an Edo broadsheet: the colour is laid down thin, the air is full of light, and the lines are a faint key block.
+The first cut was a hard woodblock print. The owner preferred the Wind Lover picture, so the look is now built on it: hemisphere light with a soft sun, no outlines, and film grain. The theme stays Japan, and the mood is pushed toward the pale, the sad and the nostalgic, like an empty Tokyo on faded film.
 
-- **Tones.** Soft Lambert-like shading runs between a shade colour and a light colour. Every surface goes through `wash()`: a mix of 20% toward the hour's pale wash colour, with darks floored at 22% of it, so nothing reaches black. The building palettes are pastel: pale grey glass, light earth and pale stone, faded vermilion and soft slate roofs.
-- **Lines.** The post pass keeps only silhouettes and soft creases, 1–1.6 px wide at 32% strength, in a blue-grey taken from the sky, and fades them out by about 1.4 km. Colour-edge lines are gone. In the strike frame the lines come back to full sumi.
-- **Sky.** This is the Wind Lover sky: a gradient from the horizon to the zenith, a warm glow round the sun, and a soft band where the sky meets the land. On top of it: drifting soft clouds near the horizon, and a faint bokashi at the very top.
-- **Hour.** The moods are pale, after Wind Lover: 暁 (rose dawn), 昼 (pale gold), 夕 (amber), 宵 (lilac blue hour) and 霞 (teal mist). They drift over 12 minutes, and the menu can fix one. It never goes fully dark. At 宵 the windows, signs and lanterns come on softly.
-- **Mist** is long and pale (420–2300 m), with a lighter ground mist.
-- **Water** is pale aqua, with faint seigaiha (青海波) scallops.
-- **Speed.** White lane lines run on every arterial and deck: continuous edges, dashed lanes and a yellow centre line on arterials. Speed streaks rush out of the vanishing point above about 150 km/h.
-- **Far mountains** (Fuji, Tanzawa and Okutama, Tsukuba) are pale silhouettes that ride with the camera.
+- **Light.** Wind Lover light: a hemisphere from the sky colour to a shade colour (74%), plus a soft sun (36%). Surfaces get a light pale wash (12%), and darks never reach black.
+- **Grade.** In the post pass, colour is pulled 20% toward grey, then 40% toward sepia. Blacks are lifted and whites softened (×0.86, plus a small offset). Moving film grain sits on top, with a soft vignette always on.
+- **Lines.** There are none in play. Depth silhouettes are drawn only in the kabuki strike frame.
+- **Hour.** Faded moods: 夕 (amber, where it starts), 宵 (lilac blue hour, lights on), 暁 (rose), 霞 (teal mist) and 昼 (pale gold). They drift over 15 minutes, and the menu can fix one.
+- **Empty city.**
+  - Maple leaves (at dusk) or cherry petals drift through the air and rush past at speed.
+  - A temple bell sounds far off every 20–50 s; at dusk and dawn, higurashi call instead.
+- **Sky and water.** The Wind Lover sky with soft drifting clouds, pale aqua water with faint seigaiha, and far mountains as pale silhouettes.
+- **Speed.** All three effects build from 120 km/h to 340 km/h, and the stance damps them:
+  - White lane lines run on every arterial and deck.
+  - A radial blur drags the edges of the frame toward the vanishing point.
+  - White speed streaks rush outward.
+
+  On top of that, the field of view opens by up to 23°, and the camera shudders more at speed.
 
 ## The map: a stylised Tokyo
 
@@ -50,7 +56,7 @@ The board keeps the Wind Lover handling. These are the numbers to protect:
   - Town tuning: yaw from lean starts at 36% (Wind Lover: 30%) and is full after about 1.9 s of holding (Wind Lover: 2.4 s).
 - **Grip** turns slide back into speed. Off the road, grip is 72%.
 - **Speed.**
-  - Cruise is 36 m/s (130 km/h) and the top is 88 m/s.
+  - Cruise is 40 m/s (144 km/h) and the top is 100 m/s.
   - Flow raises both while you keep going.
   - Tuck (stick up) pulls toward 1.35 × cruise, with the long pull on straights.
   - Measured: tucking straight down 中央通り for 18 s covered 1.27 km, peaking at 341 km/h with flow.
@@ -67,10 +73,11 @@ The board keeps the Wind Lover handling. These are the numbers to protect:
 | Step | What happens |
 |---|---|
 | Stance (構え) | Hold the finger still (within 16 px) for 0.32 s; on a keyboard, hold Space. An ensō is drawn round the finger as you hold, and the stance begins when it closes. A finger that has been steering must come back to centre first. |
-| Approach | The board slows toward `KAMAE_V` (26 m/s). It turns in onto the chosen figure, harder as the distance closes: rate 1.4 → 7 from 150 m to 16 m. It closes the lateral gap with the float and calms the lean. The finger nudges at 45%. Time runs at 0.86 and the frame takes a sumi wash. |
+| Approach | The board slows toward `KAMAE_V` (34 m/s) and lines up to pass close beside the chosen figure (`PASS_OFF` 2.8 m, on the side you are already on). It steers harder as the distance closes: rate 1.4 → 7 from 150 m to 16 m. The finger nudges at 45%. |
+| The held breath | From 70 m in to 22 m, time slows from 0.9 to 0.5 and the frame sinks: desaturated and darkened by up to about 60% at the edges. Speed effects fade out. |
 | Wind-up | The figure reads your approach. When you will reach it within one wind-up (`WINDUP` 0.95 s), it calls ヨォー, swings its mane (毛振り), and raises the naginata. A vermilion brush ring closes on it. |
-| The window | In the last `WINDOW` (0.30 s), the ring turns gold and the tsuzumi sounds ポン. Release within `REACH` (26 m) to cut. Inside the last `PERFECT` (0.12 s), the cut is 一閃. |
-| The cut | A hit-stop of 0.17 s (0.24 for 一閃). The frame turns to sumi and paper with the vermilion kept, focus lines (集中線) close on the figure, and the brush character 斬 or 一閃 is stamped with a seal. The camera cuts to a low side view (the mie), framed on the point between the rider and the figure and placed where there is open air. Then the board dashes through, under a short slow-motion. The mask splits and falls; the body goes up in ink, Hokusai wave crests, and cherry petals or maple leaves. You get +15 m/s (+22 for 一閃), flow, one life back, and souls (魂). |
+| The window | In the last `WINDOW` (0.26 s of game time, about 0.5 s real at half speed), the ring turns gold and the tsuzumi sounds ポン. Release within `REACH` (22 m) to cut. Inside the last `PERFECT` (0.11 s), the cut is 一閃. |
+| The cut | A hit-stop of 0.30 s (0.42 for 一閃), as a kabuki mie (見得), with tsuke clappers striking battabatta… battari. The picture turns to a black ground with the figures in white and vermilion kept. The 定式幕 (black, persimmon, green) closes in from top and bottom, and 斬 or 一閃 is stamped with a seal. A white stroke edged in vermilion crosses the frame, and halfway through the hold the picture is cut in two along it and slides apart, then knits back. A white crescent sword stroke sweeps round the rider. The camera is a low side view framed on both of you. Then the board flies past beside the figure under a short slow-motion, at +24 m/s (+34 for 一閃). The mask splits and falls, and the figure goes over backwards in a kabuki fall before vanishing in sumi and leaves. You get flow, one life back, and souls (魂). |
 | Too early | 弾かれ. The blade is turned aside: a clang, and you are thrown off the line with a stagger of 0.6 s. |
 | Too late | The naginata comes down (radius 10.5 m) and you lose a life. |
 
@@ -88,8 +95,8 @@ Passing at 52 m/s, 14 m to the side, was safe.
 | What | Behaviour |
 |---|---|
 | Peaceful passes | Paper cranes (折り鶴) with flapping wings, and fox-fire processions (狐火) trailing orange hitodama. They cross high, every 4–9 s. |
-| Assaults | Noh masks (小面, 般若, 翁, 癋見, 天狗) with vermilion halos. They come up the road, hold about 175 m ahead and fire a pattern every 1.8 s: a curtain with a gap, a fan, a widening ring, three aimed streams, a spiral, or a double curtain. Rounds keep your pace and close at 60 m/s, so each takes about three seconds to arrive. |
-| Chasers | Hunt from behind and fire aimed volleys at 56 m/s. You outrun them at speed. They come sooner when you are slow. |
+| Assaults | Noh masks (小面, 般若, 翁, 癋見, 天狗) with vermilion halos, every 9–23 s. They come up the road, hold about 175 m ahead and fire a geometric figure every 1.15 s. The figures are laid flat over the road and open as they come: 花 (a rose of 3–6 petals), 五芒 (a pentagram), 渦 (five spiral arms), 格子 (rows with two gaps), 輪 (three rings), 蓮 (two hexagrams), 簾 (a double curtain) and 曼荼羅 (a ring with a turning flower). That is 40–100 rounds each. Rounds keep your pace and close at 60 m/s, so each figure takes about three seconds to arrive. They are vermilion or indigo beads with a white heart and a dark rim, so they read against a pale sky. |
+| Chasers | Hunt from behind and fire rings of 18 rounds aimed at you at 56 m/s. You outrun them at speed. They come sooner when you are slow. |
 | Formations | Named after the old battle arrays (八陣): 鶴翼, 魚鱗, 雁行, 長蛇, 円月 and 偃月. |
 
 Hitodama do nothing under an expressway deck (roofs shelter). Grazing one, within 4.8 m, chimes on the miyako-bushi scale and adds flow.

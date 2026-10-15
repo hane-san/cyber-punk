@@ -39,7 +39,7 @@ const sfx = (() => {
     update(speed, kamae, slow) {
       if (!ac) return; const t0 = now(), k = clamp(speed / 70, 0, 1);
       hum.frequency.setTargetAtTime(48 + k * 70, t0, 0.1); humF.frequency.setTargetAtTime(220 + k * 900, t0, 0.1); humG.gain.setTargetAtTime(0.03 + k * 0.05, t0, 0.15);
-      windF.frequency.setTargetAtTime(300 + k * 1500, t0, 0.2); windG.gain.setTargetAtTime(k * k * 0.22, t0, 0.2);
+      windF.frequency.setTargetAtTime(300 + k * 1500, t0, 0.2); windG.gain.setTargetAtTime(k * k * 0.32, t0, 0.2);
       lp.frequency.setTargetAtTime(kamae || slow ? 1400 : 18000, t0, kamae ? 0.25 : 0.08);
       droneG.gain.setTargetAtTime(kamae ? 0.06 : 0, t0, 0.2); droneO.frequency.setTargetAtTime(146.8 * (1 + Math.sin(t0 * 5) * 0.004), t0, 0.05);
     },
@@ -81,6 +81,22 @@ const sfx = (() => {
     hurt() { tone(120, 'sawtooth', 0.25, 0.005, 0.35, lp, 0.4); noise(0.3, 0.005, 0.3, 'lowpass', 1200); },
     kamae(onK) { if (onK) { noise(0.08, 0.002, 0.06, 'bandpass', 3000, 4); tone(1600, 'sine', 0.03, 0.002, 0.15); } },
     noto() { noise(0.1, 0.002, 0.05, 'bandpass', 2600, 5); noise(0.08, 0.002, 0.05, 'bandpass', 2000, 5, 0.09); },
+    // tsuke-uchi: wooden clappers struck on a board — battabatta... battari — for the mie
+    tsuke(perfect) {
+      const hits = perfect ? [0, 0.05, 0.1, 0.15, 0.2, 0.36] : [0, 0.06, 0.12, 0.28];
+      hits.forEach((d, i) => { const last = i === hits.length - 1; noise(last ? 0.9 : 0.45, 0.001, last ? 0.09 : 0.04, 'bandpass', last ? 1500 : 1800, last ? 3 : 5, d); tone(last ? 520 : 640, 'square', last ? 0.12 : 0.05, 0.001, last ? 0.08 : 0.03, lp, 1, d); });
+    },
+    // the temple bell far off: low partials with a long decay
+    bell() { for (const [f, a, dcy] of [[98, 0.12, 6], [196.5, 0.07, 4.5], [263, 0.05, 3.5], [348, 0.035, 2.5], [522, 0.02, 1.6]]) tone(f, 'sine', a, 0.01, dcy, master); },
+    // higurashi: kana-kana-kana, a pulsing high call falling away
+    higurashi() {
+      if (!ac) return; const t0 = now(), o = ac.createOscillator(), g = ac.createGain(), am = ac.createOscillator(), amg = ac.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(4300, t0); o.frequency.linearRampToValueAtTime(3700, t0 + 2.6);
+      am.frequency.setValueAtTime(14, t0); am.frequency.linearRampToValueAtTime(9, t0 + 2.6); amg.gain.value = 0.5;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.022, t0 + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.8);
+      const mod = ac.createGain(); mod.gain.value = 0.5; am.connect(amg); amg.connect(mod.gain);
+      o.connect(mod); mod.connect(g); g.connect(master); o.start(t0); am.start(t0); o.stop(t0 + 2.9); am.stop(t0 + 2.9);
+    },
     // hyoshigi: two hard wooden claps
     hyoshigi(delay = 0) { for (const d of [0, 0.16]) { noise(0.5, 0.001, 0.05, 'bandpass', 1900, 7, delay + d); tone(1150, 'square', 0.06, 0.001, 0.05, lp, 1, delay + d); } },
   };

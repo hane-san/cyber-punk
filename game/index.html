@@ -102,6 +102,16 @@ p { margin: 0; line-height: 1.75; font-size: 13.5px; font-weight: 500; }
 .rec { display: flex; gap: 16px; font-size: 12px; font-weight: 700; }
 .rec b { font-family: var(--font-num); font-weight: 400; font-size: 22px; margin-right: 3px; }
 h2 { margin: 0; font-family: var(--font-brush); font-weight: 400; font-size: 30px; }
+/* the kabuki curtain (定式幕): black, persimmon and green stripes close in from top and bottom for the mie */
+#maku { position: fixed; inset: 0; z-index: 6; pointer-events: none; }
+#maku i { position: absolute; left: 0; right: 0; height: 13vh; background: repeating-linear-gradient(90deg, #1d1b20 0 33.33%, #c7612f 33.33% 66.66%, #2f5a3c 66.66% 100%); background-size: 42vw 100%; transform: scaleY(0); }
+#maku i.t { top: 0; transform-origin: top; }
+#maku i.b { bottom: 0; transform-origin: bottom; }
+#maku.on i { animation: maku 0.95s cubic-bezier(.2, 1.4, .3, 1) forwards; }
+#maku.on i.t { animation-name: makuT; }
+@keyframes maku { 0% { transform: scaleY(0); background-position: 0 0; } 14% { transform: scaleY(1); } 70% { transform: scaleY(1); background-position: 42vw 0; } 100% { transform: scaleY(0); background-position: 60vw 0; } }
+@keyframes makuT { 0% { transform: scaleY(0); background-position: 0 0; } 14% { transform: scaleY(1); } 70% { transform: scaleY(1); background-position: -42vw 0; } 100% { transform: scaleY(0); background-position: -60vw 0; } }
+@media (prefers-reduced-motion: reduce) { #maku.on i { animation-duration: 0.01s; } }
 @media (prefers-reduced-motion: reduce) { #stamp.on { animation-duration: 0.01s; } #cart, #toast, #hint { transition: none; } }
 </style>
 
@@ -113,6 +123,7 @@ h2 { margin: 0; font-family: var(--font-brush); font-weight: 400; font-size: 30p
 </div>
 <div id="cart" aria-live="polite"><div class="series">名所東京百景</div><div class="slip" id="cartName">日本橋</div><div class="sub" id="cartSub"></div></div>
 <div id="toast"></div>
+<div id="maku"><i class="t"></i><i class="b"></i></div>
 <div id="stamp"><div class="ch" id="stampCh">斬</div><div class="seal" id="stampSeal">一番</div></div>
 <svg id="ens" viewBox="0 0 104 104" aria-hidden="true"><circle cx="52" cy="52" r="44" transform="rotate(-80 52 52)"/></svg>
 <div id="stick"><i id="knob"></i></div>
@@ -127,14 +138,14 @@ h2 { margin: 0; font-family: var(--font-brush); font-weight: 400; font-size: 30p
       <h1>浮世電走</h1>
       <div class="lede">
         <div class="eyebrow">試作 〇・一 ── 地図と走り</div>
-        <p>動力板に乗った合羽の旅人が、日本橋を発って広い東京を駆け抜ける。空には能面の群れが人魂を撃ち、道には面を着けた異人が薙刀を構えて立つ。速さで躱し、構えて、一閃。</p>
+        <p>人の消えた東京を、動力板に乗った合羽の旅人がひとり駆け抜ける。空の能面は幾何学の弾幕を撒き、道には面を着けた異人が薙刀を構えて立つ。速さで掻い潜り、手前で構え、すれ違いざまに一閃。</p>
       </div>
     </div>
     <div class="how">
       <b>操る</b><span>画面をなぞって曲がる。上で前傾して加速、下で減速、下に倒しつつ曲げると滑走。短い入力は横滑り、押し続けると大きく弧を描く。</span>
-      <b>構え</b><span>指を止めて長押し。減速しながら、道の先の異人へ自然に寄っていく。</span>
-      <b>一閃</b><span>相手の朱の輪が閉じて金に変わり、鼓が「ポン」と鳴る一瞬に指を離す。早ければ弾かれ、遅ければ斬られる。</span>
-      <b>躱す</b><span>人魂は速さで振り切り、隙間へ滑り込む。首都高の下は空から撃たれない。</span>
+      <b>構え</b><span>指を止めて長押し。道の先の異人の脇へ寄せながら、近づくほど時が遅くなり、画面が沈む。</span>
+      <b>一閃</b><span>朱の輪が閉じて金に変わり、鼓が「ポン」と鳴る一瞬に指を離せば、すれ違いざまに斬る。早ければ弾かれ、遅ければ斬られる。</span>
+      <b>躱す</b><span>能面の弾幕は花・五芒・渦・格子の形で迫る。形を読んで隙間へ滑り込む。首都高の下は空から撃たれない。</span>
     </div>
     <div class="row"><button class="go" id="btnGo" type="button">日本橋から発つ</button><button class="ghost" id="btnRandom" type="button">どこかの道から</button></div>
     <span class="label">縦画面推奨・音が出ます・キーボードは矢印とスペース</span>

@@ -4,10 +4,10 @@
 // up; its brush ring closes and turns gold, and a tsuzumi sounds (ポン). Let go inside that last instant and the cut
 // lands as you pass: hit-stop in a kabuki frame, the screen cut in two, and the board flies on. Let go early and the blade is
 // turned aside (弾かれ); hold too long and the naginata comes down on you.
-const KAMAE_V = 34, REACH = 28, HITSTOP = 0.22, HITSTOP_P = 0.28, PASS_OFF = 2.8, CLOSE_OFF = 2.1, CLOSE_T = 0.075, BOOM_DELAY = 0.12;
+const KAMAE_V = 28, REACH = 28, HITSTOP = 0.22, HITSTOP_P = 0.28, PASS_OFF = 2.8, CLOSE_OFF = 2.1, CLOSE_T = 0.12, BOOM_DELAY = 0.12;
 const IAI = {
   state: 'none', target: null, t: 0, timeScale: 1, freeze: 0, freeze0: 0, slow: 0, dashFrom: new V3(), dashTo: new V3(), dashT: -1,
-  mie: 0, mieYaw: 0, mieDist: 9, mieC: new V3(), phase: '', phaseT: 0, cutE: null, perfect: false, closeFrom: new V3(), closeTo: new V3(), swingP: 0, boomT: -1, lastResult: '', combo: 0, comboT: 0, near: 0, side: 1, split: 0, slashK: 0,
+  mie: 0, mieYaw: 0, mieDist: 9, mieC: new V3(), phase: '', phaseT: 0, cutE: null, perfect: false, closeFrom: new V3(), closeTo: new V3(), swingP: 0, boomT: -1, lastResult: '', combo: 0, comboT: 0, near: 0, side: 1, split: 0, slashK: 0, boostT: -1,
   begin() {
     if (P.dead || P.stagger > 0 || this.state !== 'none' || (this.phase && this.phase !== 'boom')) return;
     this.state = 'kamae'; this.t = 0; P.kamae = true; sfx.kamae(true); kamaePull = 0; kamaeLat = 0;
@@ -58,20 +58,22 @@ const IAI = {
     const rx = -h.z, rz = h.x;
     this.closeFrom.copy(P.pos);
     this.closeTo.set(e.pos.x + rx * this.side * CLOSE_OFF - h.x * 0.6, P.pos.y, e.pos.z + rz * this.side * CLOSE_OFF - h.z * 0.6);
-    this.dashTo.set(e.pos.x + rx * this.side * CLOSE_OFF + h.x * 18, P.pos.y, e.pos.z + rz * this.side * CLOSE_OFF + h.z * 18);
+    this.dashTo.set(e.pos.x + rx * this.side * CLOSE_OFF + h.x * 22, P.pos.y, e.pos.z + rz * this.side * CLOSE_OFF + h.z * 22);
     P.yaw = Math.atan2(h.x, h.z); fwd.set(h.x, 0, h.z);
+    // continuous velocity: set a moderate pass speed rather than a hard snap
     const currentSpeed = Math.hypot(P.vel.x, P.vel.z);
-    const sp = Math.max(currentSpeed, KAMAE_V) + (perfect ? 24 : 16);
-    P.vel.lerp(new V3(h.x * sp, 0, h.z * sp), 0.6); P.flow = Math.min(1, P.flow + (perfect ? 0.3 : 0.2)); P.invuln = 1.2;
+    const sp = Math.max(currentSpeed * 0.7, KAMAE_V * 0.85) + (perfect ? 12 : 8);
+    P.vel.set(h.x * sp, 0, h.z * sp);
+    P.flow = Math.min(1, P.flow + (perfect ? 0.3 : 0.2)); P.invuln = 1.2;
     P.hull = Math.min(3, P.hull + 1); P.souls += perfect ? 2 : 1; store.set('ukiyo.souls', P.souls);
     cutIjin(e);
-    this.phase = 'in'; this.phaseT = 0; this.swingP = 0; this.boomT = -1; kamaePull = 0;
+    this.phase = 'in'; this.phaseT = 0; this.swingP = 0; this.boomT = -1; kamaePull = 0; this.boostT = -1;
     swingStart(this.side); sfx.draw();
   },
   // the blade is through: freeze the frame
   land() {
     const e = this.cutE, perfect = this.perfect;
-    this.phase = 'hold'; this.freeze = this.freeze0 = perfect ? HITSTOP_P : HITSTOP; this.slow = 0.35;
+    this.phase = 'hold'; this.freeze = this.freeze0 = perfect ? HITSTOP_P : HITSTOP; this.slow = 0.4;
     this.mie = 1; this.mieDist = 9; this.mieC.copy(P.pos).lerp(e.pos, 0.5); let pick = null;
     const C = this.mieC;
     for (const sd of [-this.side, this.side]) for (const dd of [10, 8, 6]) {
@@ -115,22 +117,28 @@ const IAI = {
     this.near = lerp(this.near, this.state === 'kamae' && e ? smooth(70, 22, d) : 0, 1 - Math.exp(-6 * dtReal));
     // time: frozen in the hit-stop, slowed after it, and slowed into the moment before the cut
     if (this.phase === 'in') {
-      // closing in: the world is held while the rider covers the last metres and the blade comes round
-      this.phaseT += dtReal; const k = Math.min(1, this.phaseT / CLOSE_T), ke = 1 - (1 - k) * (1 - k);
-      P.pos.x = lerp(this.closeFrom.x, this.closeTo.x, ke); P.pos.z = lerp(this.closeFrom.z, this.closeTo.z, ke);
-      this.swingP = 0.72 * ke; this.timeScale = 0; dashPunch = 1;
+      // closing in with velocity, world slowed but not frozen so motion stays continuous
+      this.phaseT += dtReal; const k = Math.min(1, this.phaseT / CLOSE_T);
+      this.swingP = 0.65 * k; this.timeScale = 0.15; dashPunch = 0.6;
+      // gentle pull toward the close point while velocity carries us
+      const pull = 8 * (1 - k);
+      const dx = this.closeTo.x - P.pos.x, dz = this.closeTo.z - P.pos.z;
+      P.vel.x += dx * pull * dtReal; P.vel.z += dz * pull * dtReal;
       if (k >= 1) this.land();
     }
-    else if (this.freeze > 0) { this.freeze -= dtReal; this.timeScale = 0; this.swingP = lerp(0.72, 0.8, 1 - this.freeze / this.freeze0); if (this.freeze <= 0) { this.phase = 'out'; this.dashFrom.copy(P.pos); this.dashT = 0; this.boomT = BOOM_DELAY; } }
-    else if (this.slow > 0) { this.slow -= dtReal; this.timeScale = lerp(1, 0.5, smooth(0, 0.4, this.slow)); }
-    else this.timeScale = this.state === 'kamae' ? lerp(0.9, 0.5, this.near) : 1;
-    if (this.phase === 'out') this.swingP = Math.min(1, this.swingP + dtReal * 2);
+    else if (this.freeze > 0) { this.freeze -= dtReal; this.timeScale = 0; this.swingP = lerp(0.65, 0.8, 1 - this.freeze / this.freeze0); if (this.freeze <= 0) { this.phase = 'out'; this.boostT = 0.45; this.boomT = BOOM_DELAY; } }
+    else if (this.slow > 0) { this.slow -= dtReal; this.timeScale = lerp(1, 0.45, smooth(0, 0.4, this.slow)); }
+    else this.timeScale = this.state === 'kamae' ? lerp(0.85, 0.4, this.near) : 1;
+    if (this.phase === 'out') this.swingP = Math.min(1, this.swingP + dtReal * 2.2);
     if (this.boomT >= 0) { this.boomT -= dtReal; if (this.boomT < 0) this.boom(); }
     swingUpdate(this.swingP, dtReal);
-    if (this.dashT >= 0 && this.freeze <= 0 && this.phase !== 'in') {
-      this.dashT += dtReal / 0.18; const u = Math.min(1, this.dashT);
-      P.pos.x = lerp(this.dashFrom.x, this.dashTo.x, u); P.pos.z = lerp(this.dashFrom.z, this.dashTo.z, u);
-      if (u >= 1) this.dashT = -1;
+    // after the cut: re-accelerate continuously from current velocity rather than warping position
+    if (this.boostT >= 0) {
+      this.boostT -= dtReal;
+      const boost = (this.perfect ? 38 : 28) * Math.max(0, this.boostT / 0.45);
+      const hs = Math.hypot(P.vel.x, P.vel.z) || 1;
+      P.vel.x += (P.vel.x / hs) * boost * dtReal; P.vel.z += (P.vel.z / hs) * boost * dtReal;
+      if (this.boostT <= 0) this.boostT = -1;
     }
     if (this.state === 'kamae') {
       this.t += dtReal;

@@ -513,8 +513,10 @@ void main(){
   float v = smoothstep(0.38, 1.05, length((vUv - 0.5) * vec2(1.0, 1.25)) * 1.45);
   col *= 1.0 - v * 0.24;
   col = mix(col, uShu * 0.85, v * uVig);
-  col = mix(col, vec3(lum(col)) * vec3(0.95, 0.97, 1.05), uFocus * 0.7);
-  col *= 1.0 - uFocus * (0.38 + 0.4 * v);
+  // the held breath: colour drains and the frame closes in from the edges, the centre stays clear
+  col = mix(col, vec3(lum(col)) * vec3(0.95, 0.97, 1.05), uFocus * 0.5);
+  float vf = smoothstep(0.25, 0.95, length((vUv - 0.5) * vec2(1.0, 1.2)) * 1.5);
+  col *= 1.0 - uFocus * (0.06 + 0.78 * vf);
   col = mix(col, uFlash, uFlashK);
   gl_FragColor = vec4(col, 1.0);
 }`,

@@ -88,6 +88,11 @@ const sfx = (() => {
     hurt() { tone(120, 'sawtooth', 0.25, 0.005, 0.35, lp, 0.4); noise(0.3, 0.005, 0.3, 'lowpass', 1200); },
     kamae(onK) { if (onK) { noise(0.08, 0.002, 0.06, 'bandpass', 3000, 4); tone(1600, 'sine', 0.03, 0.002, 0.15); } },
     noto() { noise(0.1, 0.002, 0.05, 'bandpass', 2600, 5); noise(0.08, 0.002, 0.05, 'bandpass', 2000, 5, 0.09); },
+    // the lock: a temple bell's bright rin and the dry ka of a small drum
+    lockOn() {
+      for (const [f, a, d] of [[2637, 0.07, 0.9], [3951, 0.04, 0.6], [5274, 0.02, 0.4]]) tone(f, 'sine', a, 0.002, d, master);
+      noise(0.35, 0.001, 0.035, 'bandpass', 3400, 3); tone(880, 'triangle', 0.08, 0.001, 0.06, lp, 0.6);
+    },
     // zubaba: the blade tears the air (zu), then two heavy hits land (ba, ba), three on a perfect cut, all through the drive
     zubaba(perfect) {
       if (!ac) return; const n = perfect ? 3 : 2;

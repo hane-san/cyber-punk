@@ -11,6 +11,8 @@ const IAI = {
   begin() {
     if (P.dead || P.stagger > 0 || this.state !== 'none' || (this.phase && this.phase !== 'boom')) return;
     this.state = 'kamae'; this.t = 0; P.kamae = true; sfx.kamae(true); kamaePull = 0; kamaeLat = 0;
+    // remember the speed you came in with: the glide keeps most of it, and the pass gives it back
+    this.entrySp = Math.max(Math.hypot(P.vel.x, P.vel.z), S.cruise); this.kamaeV = Math.max(35, this.entrySp * 0.85); this.surged = false;
     this.pick();
   },
   pick() {
@@ -18,7 +20,7 @@ const IAI = {
     let best = null, bs = Infinity;
     for (const e of ijins) {
       if (!e.alive) continue;
-      const dx = e.pos.x - P.pos.x, dz = e.pos.z - P.pos.z, d = Math.hypot(dx, dz); if (d > 240 || d < 3) continue;
+      const dx = e.pos.x - P.pos.x, dz = e.pos.z - P.pos.z, d = Math.hypot(dx, dz); if (d > 380 || d < 3) continue;
       const a = Math.abs(wrapA(Math.atan2(dx, dz) - P.yaw)); if (a > 0.95) continue;
       if (Math.abs(e.pos.y - P.pos.y) > 8) continue;
       const sc = d * (1 + a * 1.6); if (sc < bs) { bs = sc; best = e; }
@@ -28,6 +30,8 @@ const IAI = {
       const dx = best.pos.x - P.pos.x, dz = best.pos.z - P.pos.z; this.side = (dx * -Math.cos(P.yaw) + dz * Math.sin(P.yaw)) > 0 ? -1 : 1;
     }
     this.target = best; if (best) best.locked = true;
+    // the lock: a bell and a small drum (rin, ka), and one short surge forward before the glide
+    if (best && !this.surged) { this.surged = true; this.surgeT = 0.25; sfx.lockOn(); dashPunch = Math.max(dashPunch, 0.8); buzz(12); }
   },
   cancel(broken) {
     if (this.target) this.target.locked = false;
@@ -129,18 +133,20 @@ const IAI = {
       if (dd > 0.6) { P.vel.x = dx / dd * this.lungeSp; P.vel.z = dz / dd * this.lungeSp; P.yaw = Math.atan2(dx, dz); }
       if (k >= 1 || dd < 0.8) this.land();
     }
-    else if (this.freeze > 0) { this.freeze -= dtReal; this.timeScale = 0; this.swingP = lerp(0.65, 0.8, 1 - this.freeze / this.freeze0); if (this.freeze <= 0) { this.phase = 'out'; this.boostT = 0.45; this.boomT = BOOM_DELAY; sfx.dash(); } }
+    else if (this.freeze > 0) { this.freeze -= dtReal; this.timeScale = 0; this.swingP = lerp(0.65, 0.8, 1 - this.freeze / this.freeze0); if (this.freeze <= 0) { this.phase = 'out'; this.boostT = 0.7; this.boomT = BOOM_DELAY; sfx.dash(); } }
     else if (this.slow > 0) { this.slow -= dtReal; this.timeScale = lerp(1, 0.45, smooth(0, 0.4, this.slow)); }
-    else this.timeScale = this.state === 'kamae' ? lerp(0.85, 0.4, this.near) : 1;
+    else this.timeScale = this.state === 'kamae' ? lerp(0.95, 0.6, this.near) : 1;
+    // the surge on lock: a quick push along the line, then it settles into the glide
+    if (this.surgeT > 0 && this.state === 'kamae') { const k = this.surgeT / 0.25; this.surgeT -= dtReal; const hs = Math.hypot(P.vel.x, P.vel.z) || 1; P.vel.x += P.vel.x / hs * 90 * k * dtReal; P.vel.z += P.vel.z / hs * 90 * k * dtReal; }
     if (this.phase === 'out') this.swingP = Math.min(1, this.swingP + dtReal * 2.2);
     if (this.boomT >= 0) { this.boomT -= dtReal; if (this.boomT < 0) this.boom(); }
     swingUpdate(this.swingP, dtReal);
     // after the cut: re-accelerate continuously from current velocity rather than warping position
     if (this.boostT >= 0) {
       this.boostT -= dtReal;
-      const boost = (this.perfect ? 38 : 28) * Math.max(0, this.boostT / 0.45);
-      const hs = Math.hypot(P.vel.x, P.vel.z) || 1;
-      P.vel.x += (P.vel.x / hs) * boost * dtReal; P.vel.z += (P.vel.z / hs) * boost * dtReal;
+      // back up to the speed you came in with (a touch more for 一閃), quickly but without a jolt
+      const hs = Math.hypot(P.vel.x, P.vel.z) || 1, want = (this.entrySp || S.cruise) * (this.perfect ? 1.12 : 1.04);
+      if (hs < want) { const add = Math.min(want - hs, (want - hs) * 6 * dtReal + 20 * dtReal); P.vel.x += (P.vel.x / hs) * add; P.vel.z += (P.vel.z / hs) * add; }
       if (this.boostT <= 0) this.boostT = -1;
     }
     if (this.state === 'kamae') {

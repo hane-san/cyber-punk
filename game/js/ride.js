@@ -108,7 +108,8 @@ function stepPhysics(dt) {
     const cruiseNow = S.cruise * (1 + P.flow * 0.5), maxNow = S.maxSpeed * (1 + P.flow * 0.3);
     let target = S.auto && !braking && !P.dead ? cruiseNow : 0, acc = V.accel * (vf < 12 ? 0.55 : 1);
     if (P.tuck && target > 0) { target = cruiseNow * 1.35; acc *= 1.6; }
-    if (P.kamae) { target = KAMAE_V; if (vf > KAMAE_V) vf -= (vf - KAMAE_V) * 1.5 * dt; }
+    // in the stance the board glides: it eases toward most of the speed it came in with, never a hard brake
+    if (P.kamae) { const kv = IAI.kamaeV || KAMAE_V; target = kv; if (vf > kv && !(IAI.surgeT > 0)) vf -= (vf - kv) * 0.7 * dt; }
     if (vf < target) vf += acc * dt * (1 - clamp(vf / Math.max(target, 1), 0, 1) * 0.5);
     if (braking) vf = Math.max(0, vf - 26 * brakeAmt * dt);
     P.onRoad = P.surf === 'exp' || P.surf === 'ramp' || P.surf === 'bridge' || roadOnNow;

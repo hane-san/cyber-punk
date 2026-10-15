@@ -174,6 +174,21 @@ More for the feel:
   - The tsuke clappers follow.
 - **The lock-on mark** is asagi: a brush-drawn double ring with four ticks, like a sight. The wind-up ring is asagi too, and turns gold only inside the window. The ground figures' markings never share a colour with the vermilion and indigo rounds.
 
+## The tempo of a cut
+
+The cut is meant to flow in one breath:
+1. **Lock on from far:** up to 380 m ahead, within about 55° of your line.
+2. **Surge:** on the lock, a temple bell's rin and a small drum's ka sound, and the board surges forward for 0.25 s (about +11 m/s).
+3. **Glide:** the board eases toward 85% of the speed you came in with (at least 35 m/s), at a gentle 0.7/s, never braking hard. Time slows only from 0.95 to 0.6 as you close. The frame drains of colour and darkens from the edges inward, while the centre stays clear.
+4. **Cut**, as before.
+5. **Back to speed:** over 0.7 s the board returns to the speed you came in with (×1.04, or ×1.12 for 一閃), smoothly.
+
+Measured from 330 m at 55 m/s:
+- the lock came at 328 m;
+- the glide settled near 48 m/s;
+- the cut landed at 2.4 m;
+- the board was back above 60 m/s within about a second.
+
 ## Known limitations
 
 - Start-up builds the district field and the global towers for the whole 72 × 62 km world: about 3 s in headless Chromium on a desktop CPU.

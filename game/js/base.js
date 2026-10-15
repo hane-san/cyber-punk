@@ -50,11 +50,11 @@ const COL = {
   benigara: 0x8f3b2b,// 弁柄
   rokusho: 0x4f8f80, // 緑青 (copper roofs)
   matsu: 0x3d5838,   // 松葉
-  moegi: 0x8aa04a,   // 萌黄
+  moegi: 0xaebf80,   // 萌黄
   sakura: 0xf1b9bd,  // 桜
-  tsuchi: 0xa79c80,  // 土
-  suna: 0xc2b494,    // 砂
-  kawara: 0x4a5160,  // 瓦
+  tsuchi: 0xc6bca2,  // 土
+  suna: 0xd8ceb4,    // 砂
+  kawara: 0x7a8393,  // 瓦
   shikkui: 0xeee9dc, // 漆喰
   nibi: 0x5d6068,    // 鈍色 (asphalt)
 };
@@ -66,6 +66,6 @@ const store = {
 
 // The board: the Wind Lover hover-board handling, tuned up for city streets.
 // roll: how fast the lean answers; grip: sideways bite; cruise/maxSpeed in m/s.
-const BOARD = { name: '電動板', hover: 0.55, grip: 6.2, accel: 17, roll: 5.2, defaults: { maxSpeed: 76, cruise: 33, inertia: 1.2, gravity: 30, turn: 1.0, camDist: 10.5, fovKick: 1.1, auto: true } };
-const S = { ...BOARD.defaults, ...(store.get('ukiyo.settings.v1', {}) || {}) };
-const saveS = () => store.set('ukiyo.settings.v1', S);
+const BOARD = { name: '電動板', hover: 0.55, grip: 6.2, accel: 17, roll: 5.2, defaults: { maxSpeed: 88, cruise: 36, inertia: 1.2, gravity: 30, turn: 1.0, camDist: 12.5, fovKick: 1.15, auto: true } };
+const S = { ...BOARD.defaults, ...(store.get('ukiyo.settings.v2', {}) || {}) };
+const saveS = () => store.set('ukiyo.settings.v2', S);

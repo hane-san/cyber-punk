@@ -14,18 +14,20 @@ const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.5, 26
 // shared uniforms: every print material reads the same light, mist and hour
 const U = {
   uSun: { value: new V3(-0.6, 0.3, 0.3).normalize() }, uLight: { value: new THREE.Color(1, 1, 1) }, uShade: { value: new THREE.Color(0.6, 0.62, 0.75) },
-  uMist: { value: new THREE.Color(COL.paper) }, uFog: { value: new THREE.Vector2(380, 1250) }, uLowMist: { value: 0.9 },
+  uMist: { value: new THREE.Color(COL.paper) }, uFog: { value: new THREE.Vector2(420, 2300) }, uLowMist: { value: 0.55 }, uWash: { value: new THREE.Color(0xeef0f2) }, uWashK: { value: 0.2 },
   uNight: { value: 0.3 }, uTime: { value: 0 },
 };
 const GL_COMMON = `
-uniform vec3 uSun; uniform vec3 uLight; uniform vec3 uShade; uniform vec3 uMist; uniform vec2 uFog; uniform float uLowMist; uniform float uNight; uniform float uTime;
+uniform vec3 uSun; uniform vec3 uLight; uniform vec3 uShade; uniform vec3 uMist; uniform vec2 uFog; uniform float uLowMist; uniform float uNight; uniform float uTime; uniform vec3 uWash; uniform float uWashK;
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float mistF(vec3 wp, float dist){
   float f = smoothstep(uFog.x, uFog.y, dist);
   // ground mist: the feet of far things sink into a band of 霞
-  float low = (1.0 - smoothstep(-6.0, 12.0 + dist * 0.07, wp.y)) * smoothstep(70.0, 640.0, dist) * uLowMist;
-  return clamp(max(f, low * 0.92), 0.0, 1.0);
-}`;
+  float low = (1.0 - smoothstep(-6.0, 14.0 + dist * 0.06, wp.y)) * smoothstep(120.0, 900.0, dist) * uLowMist;
+  return clamp(max(f * f * (3.0 - 2.0 * f) * 0.92, low * 0.85), 0.0, 1.0);
+}
+// the pale wash: everything is laid down thin, as in a shin-hanga print, and the darks never reach black
+vec3 wash(vec3 c){ c = mix(c, uWash, uWashK); return max(c, uWash * 0.22); }`;
 
 // ---- the print material: vertex colour, flat tones, and painted detail by surface type (aWin)
 // aWin: 1 office glass, 2 wooden front (lattice and paper screens), 3 roof tiles, 4 flats with balconies,
@@ -39,8 +41,8 @@ varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vWin; varyin
 void main(){
   vec3 n = normalize(vN);
   float l = dot(n, uSun);
-  vec3 tint = l > 0.18 ? uLight : (l > -0.25 ? mix(uShade, uLight, 0.5) : uShade);
-  if (n.y > 0.8) tint = uLight * 1.03;
+  vec3 tint = mix(uShade, uLight, smoothstep(-0.45, 0.55, l));
+  tint *= 0.94 + 0.08 * n.y;
   vec3 col = vCol * tint, glow = vec3(0.0);
   float w = vWin, vert = 1.0 - step(0.4, abs(n.y));
   vec2 fc = vec2(dot(vWp.xz, normalize(vec2(-n.z, n.x) + 1e-5)), vWp.y);
@@ -52,22 +54,22 @@ void main(){
       vec2 g = fc / cs, f = fract(g), id = floor(g);
       float inside = step(0.14, f.x) * step(f.x, 0.86) * step(flats ? 0.38 : 0.24, f.y) * step(f.y, 0.82);
       float r = h21(id + floor(vWp.xz / 37.0) * 13.1);
-      float lit = step(1.0 - (0.06 + uNight * 0.48), r);
+      float lit = step(1.0 - (0.04 + uNight * 0.4), r);
       if (flats) col = mix(col, col * 1.18, step(f.y, 0.18)); // balcony rails
-      col = mix(col, col * 0.46 + vec3(0.03, 0.05, 0.1), inside * (1.0 - lit));
-      glow += inside * lit * mix(vec3(1.0, 0.84, 0.52), vec3(0.62, 0.9, 1.0), step(0.94, r)) * (0.25 + 0.95 * uNight);
+      col = mix(col, col * 0.72 + uWash * 0.12 + vec3(0.02, 0.04, 0.08), inside * (1.0 - lit));
+      glow += inside * lit * mix(vec3(1.0, 0.8, 0.5), vec3(0.6, 0.85, 1.0), step(0.94, r)) * (0.12 + 0.42 * uNight);
       if (w > 6.5 && fy < 4.2 && fy > 0.3) { // shop fronts: one bright band at street level
         float r2 = h21(floor(vec2(fc.x / 7.0, 3.0)) + floor(vWp.xz / 53.0));
         vec3 sc = r2 < 0.33 ? vec3(1.0, 0.55, 0.42) : r2 < 0.66 ? vec3(0.45, 0.92, 1.0) : vec3(1.0, 0.85, 0.5);
         float band = step(0.6, fy) * step(fy, 3.4) * step(0.08, fract(fc.x / 7.0)) * step(fract(fc.x / 7.0), 0.92);
-        col = mix(col, col * 0.4, band); glow += band * sc * (0.3 + 0.9 * uNight);
+        col = mix(col, col * 0.7, band); glow += band * sc * (0.3 + 0.9 * uNight);
       }
     } else if (w < 2.5) {
       vec2 g = fc / vec2(1.8, 2.8), f = fract(g), id = floor(g);
       float inside = step(0.1, f.x) * step(f.x, 0.9) * step(0.22, f.y) * step(f.y, 0.86);
       float slat = max(step(0.72, fract(fc.x / 0.3)), step(0.86, fract(fc.y / 0.46)));
       float r = h21(id + floor(vWp.xz / 29.0) * 7.7), lit = step(1.0 - (0.1 + uNight * 0.55), r);
-      col = mix(col, col * 0.5, inside * slat * 0.85);
+      col = mix(col, col * 0.68, inside * slat * 0.8);
       col = mix(col, col * 0.85 + vec3(0.06, 0.05, 0.03), inside * (1.0 - slat) * (1.0 - lit));
       glow += inside * (1.0 - slat) * lit * vec3(1.0, 0.74, 0.4) * (0.15 + 0.85 * uNight);
     } else if (w > 4.5 && w < 5.5) {
@@ -77,17 +79,17 @@ void main(){
   if (w > 2.5 && w < 3.5 && n.y < 0.97) { // roof tiles: rows running down the slope
     vec2 h = normalize(vec2(-n.z, n.x) + 1e-5);
     float u = dot(vWp.xz, h);
-    col *= 1.0 - 0.3 * step(0.8, fract(u / 0.55));
+    col *= 1.0 - 0.14 * step(0.8, fract(u / 0.55));
   }
   float dist = length(vWp - cameraPosition);
   float m = mistF(vWp, dist);
-  gl_FragColor = vec4(mix(col, uMist, m) + glow * (1.0 - m * 0.8), 1.0);
+  gl_FragColor = vec4(mix(wash(col), uMist, m) + glow * (1.0 - m * 0.8), 1.0);
 }`;
 const ukiyoMat = new THREE.ShaderMaterial({ uniforms: U, vertexShader: ukiyoVS, fragmentShader: ukiyoFS });
 // lanterns, neon tubes, lamps: their colour, brighter at night
 const glowFS = `${GL_COMMON}
 varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vWin; varying float vBase;
-void main(){ float dist = length(vWp - cameraPosition); float m = mistF(vWp, dist) * 0.7; gl_FragColor = vec4(mix(vCol * (0.7 + 0.75 * uNight), uMist, m), 1.0); }`;
+void main(){ float dist = length(vWp - cameraPosition); float m = mistF(vWp, dist) * 0.7; gl_FragColor = vec4(mix(wash(vCol) * (0.85 + 0.55 * uNight), uMist, m), 1.0); }`;
 const glowMat = new THREE.ShaderMaterial({ uniforms: U, vertexShader: ukiyoVS, fragmentShader: glowFS });
 
 // ---- textured print material (signs, masks, cape): flat, with mist; aCol tints
@@ -108,7 +110,7 @@ void main(){
   if (uLit > 0.5) { vec3 n = normalize(vN) * (gl_FrontFacing ? 1.0 : -1.0); float l = dot(n, uSun); c *= l > 0.1 ? uLight : mix(uShade, uLight, 0.4); }
   c *= 1.0 + uGlow * (0.15 + 0.6 * uNight);
   float dist = length(vWp - cameraPosition), m = mistF(vWp, dist) * (1.0 - uGlow * 0.4);
-  gl_FragColor = vec4(mix(c, uMist, m), 1.0);
+  gl_FragColor = vec4(mix(wash(c), uMist, m), 1.0);
 }` });
 }
 
@@ -291,7 +293,7 @@ class Builder {
 
 // ---- water: indigo with seigaiha (青海波) scallops that drift
 const waterMat = new THREE.ShaderMaterial({
-  uniforms: { ...U, uDeep: { value: new THREE.Color(0x24507f) }, uLine: { value: new THREE.Color(0x9cc0de) } },
+  uniforms: { ...U, uDeep: { value: new THREE.Color(0x7fa9c4) }, uLine: { value: new THREE.Color(0xe6f0f2) } },
   vertexShader: `varying vec3 vWp; void main(){ vec4 wp = modelMatrix * vec4(position, 1.0); vWp = wp.xyz; gl_Position = projectionMatrix * viewMatrix * wp; }`,
   fragmentShader: `${GL_COMMON}
 uniform vec3 uDeep; uniform vec3 uLine; varying vec3 vWp;
@@ -311,16 +313,16 @@ void main(){
   float d = seigaiha(p), r = fract(d * 3.0);
   float dist = length(vWp - cameraPosition);
   float wl = (1.0 - smoothstep(0.0, 0.16 + dist * 0.0009, r)) * (1.0 - smoothstep(60.0, 520.0, dist));
-  vec3 c = mix(uDeep, uDeep * 1.25, d);
-  c = mix(c, uLine, wl * 0.8);
-  c *= mix(vec3(1.0), uLight, 0.5);
+  vec3 c = mix(uDeep, uDeep * 1.12 + 0.04, d);
+  c = mix(c, uLine, wl * 0.45);
+  c *= mix(vec3(1.0), uLight, 0.4);
   gl_FragColor = vec4(mix(c, uMist, smoothstep(uFog.x, uFog.y * 1.2, dist)), 1.0);
 }` });
 const water = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000).rotateX(-Math.PI / 2), waterMat);
 water.position.y = WATER_Y; scene.add(water);
 
-// ---- sky: a woodblock bokashi. A dark top band (一文字ぼかし), pale middle, warm horizon, flat sun disc and
-// two long bands of suyari-gasumi mist with wavy edges.
+// ---- sky: the pale Wind Lover sky, painted as a shin-hanga print: a soft gradient with only a faint bokashi at the
+// very top, a low warm glow round the sun, and drifting bands of soft cloud near the horizon.
 const skyMat = new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false,
   uniforms: { uTop: { value: new THREE.Color() }, uMid: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uBand: { value: new THREE.Color() }, uSunCol: { value: new THREE.Color() }, uSunDir: { value: new V3(0, 0.2, 1) }, uNightS: { value: 0 }, uT: { value: 0 } },
@@ -329,25 +331,24 @@ const skyMat = new THREE.ShaderMaterial({
 uniform vec3 uTop; uniform vec3 uMid; uniform vec3 uHor; uniform vec3 uBand; uniform vec3 uSunCol; uniform vec3 uSunDir; uniform float uNightS; uniform float uT;
 varying vec3 vD;
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
 void main(){
   vec3 d = normalize(vD); float e = d.y, az = atan(d.z, d.x);
-  vec3 c = mix(uHor, uMid, smoothstep(-0.01, 0.3, e));
-  // ichimonji bokashi: the dark band sits only at the very top of the sheet
-  c = mix(c, uTop, smoothstep(0.38, 0.62, e));
-  // suyari-gasumi: long bands with soft wavy edges
-  for (int k = 0; k < 2; k++) {
-    float fk = float(k), y0 = 0.035 + fk * 0.085, wv = sin(az * (3.0 + fk * 2.0) + fk * 2.3 + uT * 0.01) * 0.012 + sin(az * 11.0 + fk) * 0.004;
-    float band = smoothstep(y0 - 0.02 + wv, y0 + wv, e) * (1.0 - smoothstep(y0 + 0.025 + wv, y0 + 0.045 + wv, e));
-    float gap = smoothstep(0.2, 0.35, abs(sin(az * (1.5 + fk) + fk * 4.0)));
-    c = mix(c, uBand, band * gap * 0.85);
-  }
-  // the sun (or the moon): a flat disc
-  float sd = dot(d, normalize(uSunDir));
-  c = mix(c, uSunCol, smoothstep(0.9985, 0.9989, sd));
-  // a few stars at night
+  vec3 c = e > 0.0 ? mix(uHor, uMid, pow(clamp(e / 0.45, 0.0, 1.0), 0.6)) : uHor;
+  c = mix(c, uTop, smoothstep(0.42, 0.9, e) * 0.75);
+  // a soft glow round the sun, and the sun itself without a hard edge
+  float sd = max(dot(d, normalize(uSunDir)), 0.0);
+  c += uSunCol * (pow(sd, 900.0) * 0.9 + pow(sd, 18.0) * 0.18 + pow(sd, 3.0) * 0.06);
+  c = mix(c, uHor * 1.03 + uSunCol * 0.03, exp(-abs(e) * 18.0) * 0.5);
+  // soft clouds: drifting bands near the horizon, white in the light
+  float y = e * 9.0;
+  float n = vn(vec2(az * 4.0 + uT * 0.004, y * 1.6)) * 0.6 + vn(vec2(az * 11.0 - uT * 0.006, y * 3.5)) * 0.4;
+  float band = smoothstep(0.02, 0.07, e) * (1.0 - smoothstep(0.12, 0.3, e));
+  float cl = smoothstep(0.52, 0.78, n) * band;
+  c = mix(c, uBand, cl * 0.7);
+  // a few stars at the blue hour
   vec2 sp = floor(vec2(az * 260.0, e * 300.0));
-  float st = step(0.9965, h21(sp)) * smoothstep(0.08, 0.3, e) * uNightS;
-  c += st * 0.6;
+  c += step(0.997, h21(sp)) * smoothstep(0.1, 0.35, e) * uNightS * 0.5;
   gl_FragColor = vec4(c, 1.0);
 }` });
 const sky = new THREE.Mesh(new THREE.SphereGeometry(20000, 32, 16), skyMat);
@@ -356,7 +357,7 @@ sky.renderOrder = -10; sky.frustumCulled = false; scene.add(sky);
 // ---- far mountains: Fuji to the west-south-west, the Tanzawa and Okutama ranges, twin-peaked Tsukuba to the north-east.
 // They ride with the camera like the sky, so they never come closer.
 const farMat = new THREE.ShaderMaterial({
-  uniforms: { uMist: U.uMist, uBody: { value: new THREE.Color(0x3d5b86) }, uSnow: { value: new THREE.Color(0xf2efe6) }, uFade: { value: 0.35 } },
+  uniforms: { uMist: U.uMist, uBody: { value: new THREE.Color(0x3d5b86) }, uSnow: { value: new THREE.Color(0xf2efe6) }, uFade: { value: 0.55 } },
   vertexShader: `attribute float aSnow; attribute float aH; varying float vS; varying float vH; void main(){ vS = aSnow; vH = aH; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `uniform vec3 uMist; uniform vec3 uBody; uniform vec3 uSnow; uniform float uFade; varying float vS; varying float vH;
 void main(){ vec3 c = mix(uBody, uSnow, step(0.5, vS)); c = mix(c, uMist, uFade + (1.0 - smoothstep(0.0, 0.5, vH)) * (1.0 - uFade) * 0.9); gl_FragColor = vec4(c, 1.0); }` });
@@ -388,31 +389,33 @@ mountain(-92, 36, 15500, 1750, 5200, 0.62, 3);          // Fuji
 mountain(-80, 10, 17500, 600, 2600, 2, 11); mountain(-70, -8, 17800, 520, 3000, 2, 12); mountain(-90, 60, 17000, 480, 2400, 2, 13); mountain(-60, -40, 18000, 430, 2600, 2, 14);
 mountain(12, -58, 17500, 520, 2200, 2, 21, 2);           // Tsukuba's twin peaks
 
-// ---- moods: the hour turns slowly through dusk, night, dawn and day. Each sets the sky, the mist and the light.
+// ---- moods: pale skies after Wind Lover. The hour drifts through dawn, a gold day, an amber evening and the
+// lilac blue hour, when the windows, signs and lanterns come on; it never goes fully dark.
 const MOODS = [
-  { name: '夕', top: 0x1d3f74, mid: 0x7a86ad, hor: 0xf1cd98, band: 0xf7dfb8, sun: 0xe0472c, mist: 0xe6c9a0, light: 0xfff0d8, shade: 0x8a8cab, night: 0.45, az: -2.75, el: 0.035, ink: 0x1d1b20 },
-  { name: '夜', top: 0x0a1328, mid: 0x1a2a4c, hor: 0x3a4568, band: 0x4c5a80, sun: 0xf2ead0, mist: 0x2a3554, light: 0x8890ba, shade: 0x4a5279, night: 1.0, az: 0.9, el: 0.3, ink: 0x0b0d16 },
-  { name: '暁', top: 0x33507f, mid: 0x9ca4c4, hor: 0xf3c8b8, band: 0xfbe3d7, sun: 0xee583a, mist: 0xe7d3cc, light: 0xfff0ea, shade: 0x989dbb, night: 0.3, az: -0.35, el: 0.04, ink: 0x1d1b20 },
-  { name: '昼', top: 0x2356a0, mid: 0x8fb1d7, hor: 0xf1e9d2, band: 0xfbf4e3, sun: 0xe74f2e, mist: 0xebe2cc, light: 0xfffaf0, shade: 0xa7adbf, night: 0.0, az: 1.3, el: 0.55, ink: 0x1d1b20 },
-].map((m) => ({ ...m, c: Object.fromEntries(['top', 'mid', 'hor', 'band', 'sun', 'mist', 'light', 'shade', 'ink'].map((k) => [k, new THREE.Color(m[k])])) }));
+  { name: '暁', top: 0x8e9ccc, mid: 0xc4c8e2, hor: 0xf3d9d2, band: 0xfbeee8, sun: 0xffd0bc, mist: 0xeedfdc, light: 0xfff6f0, shade: 0xc7c4d8, wash: 0xf4ece8, night: 0.15, az: -0.35, el: 0.08 },
+  { name: '昼', top: 0x7aa0cc, mid: 0xb9cfe6, hor: 0xf2e8cc, band: 0xffffff, sun: 0xfff0c8, mist: 0xece8d8, light: 0xfffcf2, shade: 0xc4cad6, wash: 0xf1f0ea, night: 0.0, az: 1.3, el: 0.6 },
+  { name: '夕', top: 0x9a8fb8, mid: 0xc9b8cc, hor: 0xf4d2b4, band: 0xfde9d6, sun: 0xffc49a, mist: 0xf0dccb, light: 0xfff0e0, shade: 0xc4b8c8, wash: 0xf5e8dc, night: 0.3, az: -2.75, el: 0.07 },
+  { name: '宵', top: 0x5f6fa8, mid: 0x8b86c2, hor: 0xd9cde6, band: 0xe8e0f0, sun: 0xf0d8ff, mist: 0xbfbcd8, light: 0xd8d4ee, shade: 0x9c9cc4, wash: 0xd8d6ec, night: 0.85, az: 0.9, el: 0.35 },
+  { name: '霞', top: 0x6ea4b6, mid: 0xa8cad2, hor: 0xd8ebe6, band: 0xf2faf8, sun: 0xe0fff4, mist: 0xdce9e4, light: 0xf6fffc, shade: 0xbcd0d0, wash: 0xeaf2f0, night: 0.05, az: 0.2, el: 0.4 },
+].map((m) => ({ ...m, c: Object.fromEntries(['top', 'mid', 'hor', 'band', 'sun', 'mist', 'light', 'shade', 'wash'].map((k) => [k, new THREE.Color(m[k])])) }));
 const DAY_PERIOD = 720; // seconds for a full turn of the hour
-let moodFix = store.get('ukiyo.mood', -1); // -1 = the hour moves; otherwise a fixed mood index
-let moodPhase = 0;
-const _m = { top: new THREE.Color(), mid: new THREE.Color(), hor: new THREE.Color(), band: new THREE.Color(), sun: new THREE.Color(), mist: new THREE.Color(), light: new THREE.Color(), shade: new THREE.Color(), ink: new THREE.Color() };
+let moodFix = store.get('ukiyo.mood2', -1); // -1 = the hour moves; otherwise a fixed mood index
+let moodPhase = 1.6;
+const _m = { top: new THREE.Color(), mid: new THREE.Color(), hor: new THREE.Color(), band: new THREE.Color(), sun: new THREE.Color(), mist: new THREE.Color(), light: new THREE.Color(), shade: new THREE.Color(), wash: new THREE.Color() };
 function updateMood(dt) {
   if (moodFix >= 0) moodPhase = lerp(moodPhase, moodFix, 1 - Math.exp(-1.5 * dt)); else moodPhase = (moodPhase + dt * MOODS.length / DAY_PERIOD) % MOODS.length;
-  const i = Math.floor(moodPhase) % MOODS.length, f = smooth(0.55, 1, moodPhase - Math.floor(moodPhase)), A = MOODS[i], B = MOODS[(i + 1) % MOODS.length];
+  const i = Math.floor(moodPhase) % MOODS.length, f = smooth(0.5, 1, moodPhase - Math.floor(moodPhase)), A = MOODS[i], B = MOODS[(i + 1) % MOODS.length];
   for (const k in _m) _m[k].copy(A.c[k]).lerp(B.c[k], f);
   const night = lerp(A.night, B.night, f), az = lerp(A.az, A.az + wrapA(B.az - A.az), f), el = lerp(A.el, B.el, f);
   skyMat.uniforms.uTop.value.copy(_m.top); skyMat.uniforms.uMid.value.copy(_m.mid); skyMat.uniforms.uHor.value.copy(_m.hor); skyMat.uniforms.uBand.value.copy(_m.band);
   skyMat.uniforms.uSunCol.value.copy(_m.sun); skyMat.uniforms.uSunDir.value.set(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el)); skyMat.uniforms.uNightS.value = smooth(0.6, 1, night);
-  U.uMist.value.copy(_m.mist); U.uLight.value.copy(_m.light); U.uShade.value.copy(_m.shade); U.uNight.value = night;
-  // light comes from the sun when it is up; at night from high in the south-east (the moon)
+  skyMat.uniforms.uT.value += dt;
+  U.uMist.value.copy(_m.mist); U.uLight.value.copy(_m.light); U.uShade.value.copy(_m.shade); U.uNight.value = night; U.uWash.value.copy(_m.wash);
   U.uSun.value.set(Math.cos(az) * Math.cos(Math.max(el, 0.35)), Math.sin(Math.max(el, 0.35)), Math.sin(az) * Math.cos(Math.max(el, 0.35))).normalize();
-  farMat.uniforms.uBody.value.copy(_m.top).lerp(_m.hor, 0.25);
-  farMat.uniforms.uSnow.value.copy(_m.light).lerp(_m.mist, 0.2);
-  waterMat.uniforms.uDeep.value.setHex(0x24507f).lerp(_m.top, 0.35);
-  post.uniforms.uInk.value.copy(_m.ink); post.uniforms.uInkFar.value.copy(_m.top).lerp(_m.mist, 0.25);
+  farMat.uniforms.uBody.value.copy(_m.top).lerp(_m.mist, 0.35);
+  farMat.uniforms.uSnow.value.copy(_m.light).lerp(_m.band, 0.4);
+  waterMat.uniforms.uDeep.value.setHex(0x7fa9c4).lerp(_m.top, 0.3).lerp(_m.mist, 0.15);
+  post.uniforms.uInk.value.copy(_m.top).multiplyScalar(0.45); post.uniforms.uInkFar.value.copy(_m.top).lerp(_m.mist, 0.5);
   renderer.setClearColor(_m.hor);
   return MOODS[Math.round(moodPhase) % MOODS.length].name;
 }
@@ -423,13 +426,13 @@ const post = new THREE.ShaderMaterial({
   uniforms: {
     tCol: { value: null }, tDep: { value: null }, uRes: { value: new THREE.Vector2(1, 1) }, uNear: { value: camera.near }, uFar: { value: camera.far },
     uInk: { value: new THREE.Color(COL.sumi) }, uInkFar: { value: new THREE.Color(COL.ai) }, uMono: { value: 0 }, uFlash: { value: new THREE.Color(1, 1, 1) }, uFlashK: { value: 0 },
-    uRadial: { value: 0 }, uRadC: { value: new THREE.Vector2(0.5, 0.5) }, uVig: { value: 0 }, uFocus: { value: 0 }, uTime: { value: 0 }, uPR: { value: PR }, uShu: { value: new THREE.Color(COL.shu) }, uPaper: { value: new THREE.Color(COL.paper) },
+    uRadial: { value: 0 }, uRadC: { value: new THREE.Vector2(0.5, 0.5) }, uVig: { value: 0 }, uFocus: { value: 0 }, uTime: { value: 0 }, uPR: { value: PR }, uShu: { value: new THREE.Color(COL.shu) }, uPaper: { value: new THREE.Color(COL.paper) }, uSumi: { value: new THREE.Color(COL.sumi) }, uSpeed: { value: 0 }, uLineK: { value: 0.32 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
   fragmentShader: `
 uniform sampler2D tCol; uniform sampler2D tDep; uniform vec2 uRes; uniform float uNear; uniform float uFar;
 uniform vec3 uInk; uniform vec3 uInkFar; uniform float uMono; uniform vec3 uFlash; uniform float uFlashK; uniform float uRadial; uniform vec2 uRadC;
-uniform float uVig; uniform float uFocus; uniform float uTime; uniform float uPR; uniform vec3 uShu; uniform vec3 uPaper;
+uniform float uVig; uniform float uFocus; uniform float uTime; uniform float uPR; uniform vec3 uShu; uniform vec3 uPaper; uniform vec3 uSumi; uniform float uSpeed; uniform float uLineK;
 varying vec2 vUv;
 float W(vec2 uv){ float d = texture2D(tDep, uv).x; return (uFar - d * (uFar - uNear)) / (uNear * uFar); }
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -438,7 +441,7 @@ float lum(vec3 c){ return dot(c, vec3(0.3, 0.59, 0.11)); }
 void main(){
   vec2 px = 1.0 / uRes;
   float wc = W(vUv), z = 1.0 / wc;
-  float o = mix(2.6, 1.25, smoothstep(10.0, 90.0, z)) * max(1.0, uPR * 0.75);
+  float o = mix(1.6, 1.0, smoothstep(10.0, 90.0, z)) * max(1.0, uPR * 0.7);
   vec2 dx = vec2(px.x * o, 0.0), dy = vec2(0.0, px.y * o);
   float wl = W(vUv - dx), wr = W(vUv + dx), wu = W(vUv + dy), wd = W(vUv - dy);
   float L = (wl + wr + wu + wd - 4.0 * wc) / wc;
@@ -446,39 +449,40 @@ void main(){
   float Lp = (wl + wr + wu + wd - 4.0 * wc) / mx;
   float e1 = smoothstep(0.03, 0.08, -L);                                       // silhouettes and outer corners, on the near side
   float e2 = smoothstep(0.035, 0.09, Lp) * (1.0 - smoothstep(0.22, 0.36, Lp)); // inner creases
-  // colour edges draw the painted detail (windows, signs, roof rows)
   vec3 cc = texture2D(tCol, vUv).rgb;
-  vec3 cl = texture2D(tCol, vUv - dx).rgb, cr = texture2D(tCol, vUv + dx).rgb, cu = texture2D(tCol, vUv + dy).rgb, cd = texture2D(tCol, vUv - dy).rgb;
-  float ce = length(cr - cl) + length(cu - cd);
-  float e3 = smoothstep(0.26, 0.5, ce) * 0.55 * (1.0 - smoothstep(120.0, 700.0, z));
-  float fade = 1.0 - smoothstep(380.0, 2200.0, z) * 0.7;
+  // the lines are only a pale key block: soft, thin, and gone into the mist with distance
+  float fade = 1.0 - smoothstep(150.0, 1400.0, z);
   if (z > uFar * 0.9) fade = 0.0;
-  float ink = clamp(max(max(e1, e2 * 0.75), e3) * fade, 0.0, 1.0);
+  float ink = clamp(max(e1, e2 * 0.5) * fade, 0.0, 1.0) * (uLineK + uMono * (1.0 - uLineK));
   vec3 inkC = mix(uInk, uInkFar, smoothstep(60.0, 900.0, z));
   vec3 col = cc;
   // washi: soft cloud of fibre and a fine tooth; independent of resolution
   vec2 sp = gl_FragCoord.xy / uPR;
   float grain = vn(sp * 0.45) * 0.5 + vn(sp * 0.07 + 13.0) * 0.5;
   float fib = vn(vec2(sp.x * 0.03, sp.y * 0.9) + 7.0);
-  col *= 0.94 + 0.06 * grain + 0.025 * (fib - 0.5);
-  // a printer's limited pigments: pull the colour a touch toward paper in the lights
-  col = mix(col, col * uPaper / 0.92, 0.12);
+  col *= 0.97 + 0.03 * grain + 0.015 * (fib - 0.5);
   // the strike: the frame turns to sumi on paper with vermilion kept
   float lu = lum(col), red = col.r - max(col.g, col.b);
-  vec3 mono = lu > 0.5 ? uPaper : (lu > 0.3 ? mix(uPaper, uInk, 0.18) : (lu > 0.14 ? mix(uPaper, uInk, 0.42) : mix(uPaper, uInk, 0.7)));
+  vec3 mono = lu > 0.62 ? uPaper : (lu > 0.45 ? mix(uPaper, uSumi, 0.16) : (lu > 0.3 ? mix(uPaper, uSumi, 0.38) : mix(uPaper, uSumi, 0.66)));
   mono = mix(mono, uShu, smoothstep(0.12, 0.28, red));
   col = mix(col, mono, uMono);
-  col = mix(col, inkC, ink * (1.0 + uMono * 0.3));
+  col = mix(col, mix(inkC, uSumi, uMono), ink);
   // focus lines (集中線) toward the strike
   vec2 q = (vUv - uRadC) * vec2(uRes.x / uRes.y, 1.0);
   float a = atan(q.y, q.x) / 3.14159 * 110.0, r = length(q);
   float ln = step(0.55, h21(vec2(floor(a), 3.0))) * step(fract(a), 0.32 + 0.3 * h21(vec2(floor(a), 9.0))) * smoothstep(0.18 + 0.2 * h21(vec2(floor(a), 5.0)), 0.75, r);
-  col = mix(col, uInk, ln * uRadial);
+  col = mix(col, uSumi, ln * uRadial);
+  // speed streaks, as in Wind Lover: thin pale lines rushing out from the vanishing point
+  vec2 sq = (vUv - vec2(0.5, 0.56)) * vec2(uRes.x / uRes.y, 1.0);
+  float sa = atan(sq.y, sq.x) / 3.14159 * 70.0, sr = length(sq), sid = floor(sa);
+  float run = fract(h21(vec2(sid, 1.0)) * 7.0 - uTime * (1.2 + 2.0 * h21(vec2(sid, 2.0))));
+  float streak = step(0.8, h21(vec2(sid, floor(uTime * 2.0 + h21(vec2(sid, 4.0)) * 5.0)))) * step(fract(sa), 0.09) * smoothstep(0.2, 0.55, sr) * smoothstep(0.0, 0.25, run) * (1.0 - smoothstep(0.35, 0.6, run));
+  col = mix(col, vec3(1.0), streak * uSpeed * 0.75);
   // vignettes: vermilion for danger, sumi wash for the held breath of the stance
   float v = smoothstep(0.42, 1.05, length((vUv - 0.5) * vec2(1.0, 1.25)) * 1.45);
   col = mix(col, uShu * 0.85, v * uVig);
   col = mix(col, vec3(lu) * vec3(1.02, 0.98, 0.92), uFocus * 0.35);
-  col = mix(col, uInk, v * uFocus * 0.55);
+  col = mix(col, uSumi * 1.6, v * uFocus * 0.4);
   col = mix(col, uFlash, uFlashK);
   gl_FragColor = vec4(col, 1.0);
 }`,

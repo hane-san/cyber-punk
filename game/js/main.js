@@ -23,7 +23,7 @@ function updateCamera(dt) {
   lookAng = lerp(lookAng, clamp(wrapA(ang - la), -0.32, 0.32), 1 - Math.exp(-3 * dt));
   // the stance pulls the camera in low behind the rider and turns it to frame the figure
   kamaeK = lerp(kamaeK, IAI.state === 'kamae' ? 1 : 0, 1 - Math.exp(-4 * dt));
-  const dist = S.camDist * (1 + sf * 0.12) * (1 - kamaeK * 0.18), height = 3.9 + (P.grounded ? 0 : 0.9) - kamaeK * 1.1;
+  const dist = S.camDist * (1 + sf * 0.12) * (1 - kamaeK * 0.18), height = 4.4 + (P.grounded ? 0 : 1.0) - kamaeK * 1.2;
   tmp2.copy(camDir).multiplyScalar(-dist); tmp2.y = height;
   const swing = clamp(P.yawRate, -2.2, 2.2) * sf * 2.4; tmp2.x += -camDir.z * swing; tmp2.z += camDir.x * swing;
   camOff.lerp(tmp2, 1 - Math.exp(-7 * dt));
@@ -36,8 +36,9 @@ function updateCamera(dt) {
   // the mie: on the cut, the camera jumps to the side and low, holds the pose through the hit-stop, and returns
   const mw = IAI.freeze > 0 ? 1 : smooth(0, 1, IAI.mie);
   if (mw > 0) {
-    _mie.set(P.pos.x + Math.sin(IAI.mieYaw) * IAI.mieDist, P.pos.y + 1.2, P.pos.z + Math.cos(IAI.mieYaw) * IAI.mieDist);
-    camPos.lerp(_mie, mw); _look.copy(P.pos).addScaledVector(fwd, 4); _look.y += 1.6; lookSm.lerp(_look, mw);
+    const C = IAI.mieC;
+    _mie.set(C.x + Math.sin(IAI.mieYaw) * IAI.mieDist, C.y + 1.0, C.z + Math.cos(IAI.mieYaw) * IAI.mieDist);
+    camPos.lerp(_mie, mw); _look.copy(C); _look.y += 2.0; lookSm.lerp(_look, mw);
   }
   camera.position.copy(camPos);
   const rumble = sf * sf * 0.04 + shake;
@@ -47,7 +48,7 @@ function updateCamera(dt) {
   camera.lookAt(lookSm);
   camera.rotateZ(clamp(P.yawRate, -2, 2) * 0.07 * sf * (1 - mw));
   dashPunch = Math.max(0, dashPunch - dt * 2.2);
-  const fov = (portrait ? 70 : 55) + sf * 14 * S.fovKick + dashPunch * 7 - kamaeK * 6 - mw * 10;
+  const fov = (portrait ? 70 : 55) + sf * 14 * S.fovKick + dashPunch * 7 - kamaeK * 6 + mw * 4;
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = lerp(camera.fov, fov, 1 - Math.exp(-6 * dt)); applyLens(); }
 }
 function updateRider(dt) {
@@ -105,6 +106,7 @@ function frame(now) {
   sky.position.copy(camera.position); farGroup.position.set(camera.position.x, 0, camera.position.z);
   water.position.set(Math.round(camera.position.x / 100) * 100, WATER_Y, Math.round(camera.position.z / 100) * 100);
   post.uniforms.uTime.value = U.uTime.value;
+  post.uniforms.uSpeed.value = started ? smooth(40, 85, Math.hypot(P.vel.x, P.vel.z)) * (1 - post.uniforms.uMono.value) : 0;
   if (window.__ukCam) window.__ukCam(camera, player);
   renderFrame();
 }

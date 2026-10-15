@@ -222,13 +222,13 @@ function dryRuns(pts, maxRun) {
   if (cur.length > 8) runs.push(cur);
   return runs;
 }
-const ART_HALF = 15, ART_EXP_HALF = 20, EXP_HALF = 11;
+const ART_HALF = 19, ART_EXP_HALF = 24, EXP_HALF = 13;
 const RINGS = [
   { name: '内堀通り', c: [0, -80], rx: 980, rz: 900, a2: 0.03, p2: 0.4, a3: 0.02, p3: 1.0, half: 12 },
   { name: '外堀通り', c: [0, -80], rx: 1650, rz: 1560, a2: 0.04, p2: 1.1, a3: 0.03, p3: 0.2, half: ART_EXP_HALF, exp: '都心環状線' },
   { name: '明治通り', c: [-200, -150], rx: 4600, rz: 4300, a2: 0.05, p2: 2.0, a3: 0.04, p3: 0.5, half: ART_HALF },
   { name: '山手通り', c: [-300, -200], rx: 6100, rz: 5800, a2: 0.04, p2: 0.7, a3: 0.05, p3: 2.2, half: ART_HALF },
-  { name: '環状七号線', c: [-200, -300], rx: 8600, rz: 7400, a2: 0.03, p2: 1.6, a3: 0.04, p3: 0.9, half: 17 },
+  { name: '環状七号線', c: [-200, -300], rx: 8600, rz: 7400, a2: 0.03, p2: 1.6, a3: 0.04, p3: 0.9, half: 21 },
 ];
 const RADIALS = [
   { name: '新宿通り', th: Math.PI + 0.09, r1: 10800, wob: 0.04, exp: '新宿線' },
@@ -323,8 +323,8 @@ function hPresent(j, x) {
 function lineHalf(odd, x, z) {
   const k = kindAt(x, z);
   if ((k === 'shita' || k === 'temple') && odd) return 3.4;
-  if (k === 'tower' || k === 'port') return 9;
-  return 6.5;
+  if (k === 'tower' || k === 'port') return 10;
+  return 7.5;
 }
 const vHalf = (i, z) => lineHalf(i & 1, lineX(i), z), hHalf = (j, x) => lineHalf(j & 1, x, lineZ(j));
 function localNear(x, z) {
@@ -352,7 +352,7 @@ function rampAt(q, out) {
   const p = q.p; let best = -Infinity;
   for (const r of p.ramps) {
     if (q.s < r.s0 || q.s > r.s0 + r.L) continue;
-    const lat = q.off * r.side; if (lat < 8.5 || lat > 19.5) continue;
+    const lat = q.off * r.side; if (lat < 10.5 || lat > 21.5) continue;
     const f = r.dir > 0 ? (q.s - r.s0) / r.L : (r.s0 + r.L - q.s) / r.L, k = f * f * (3 - 2 * f);
     const b = expBaseAt(q), d = expDeckAt(q), h = lerp(b + 0.2, d, k);
     if (h > best) { best = h; if (out) { out.slope = (d - b) * 6 * f * (1 - f) / r.L * r.dir; out.ramp = r; } }

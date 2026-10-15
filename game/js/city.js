@@ -87,7 +87,7 @@ function signQuad(SB, a, b, h0, h1, k) {
 
 // ---- global towers: decided once per 80 m cell over the whole map
 const TOWERS = [], towerCell = new Set();
-function cellRect(i, j, pad = 1.5) {
+function cellRect(i, j, pad = 3) {
   const x0 = lineX(i), x1 = lineX(i + 1), z0 = lineZ(j), z1 = lineZ(j + 1), xm = (x0 + x1) / 2, zm = (z0 + z1) / 2;
   return {
     x0: x0 + (vPresent(i, zm) ? vHalf(i, zm) + pad : 2), x1: x1 - (vPresent(i + 1, zm) ? vHalf(i + 1, zm) + pad : 2),
@@ -116,7 +116,7 @@ function rectClear(x0, z0, x1, z1, pad) {
   // the twin-towered city hall of Shinjuku, by hand
   TOWERS.push({ x: -5300, z: -700, hw: 30, hd: 22, h: 243, kind: 'tocho', base: terrainH(-5300, -700) - 0.5, R: 0.5, i: -999, j: -999 });
 })();
-const TOWER_PAL = [COL.ginnezumi, COL.ainezumi, COL.shironeri, 0x7f8c99, 0x9aa5a8, 0x6c7a8c, 0xb8b3a7];
+const TOWER_PAL = [0xdfe3e6, 0xc9d3dc, 0xeeeae2, 0xb8c4d0, 0xd6d9d2, 0xc2ccc9, 0xe4ddd2];
 function buildTower(B, SB, GB, T) {
   const R = mulberry(Math.floor(T.R * 1e9) + 17), col = TOWER_PAL[(R() * TOWER_PAL.length) | 0], win = T.kind === 'neon' ? 7 : 1;
   if (T.kind === 'tocho') {
@@ -300,8 +300,8 @@ function buildChunk(cx, cz) {
     for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
       const x = x0 + i * st, z = z0 + j * st, s = site(x, z), h = terrainH(x, z); hs.push(h);
       let c;
-      if (s.sd < 0) c = 0x2a4060; else if (s.sd < 16) c = 0x8e8a80;
-      else { const k = KINDS[kindAt(x, z)]; c = COL[k.ground] || COL.tsuchi; if (k.ground === 'nibi') c = 0x76746e; }
+      if (s.sd < 0) c = 0x6f8fa8; else if (s.sd < 16) c = 0xb6b0a4;
+      else { const k = KINDS[kindAt(x, z)]; c = COL[k.ground] || COL.tsuchi; if (k.ground === 'nibi') c = 0xb4b0a6; }
       const n = vnoise(x / 60, z / 60, 8); const cc = new THREE.Color(c).multiplyScalar(0.94 + n * 0.1); cs.push(cc.getHex());
     }
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
@@ -323,7 +323,7 @@ function buildChunk(cx, cz) {
     }
   };
   const i0 = Math.floor(x0 / CELL) - 1, i1 = Math.floor((x0 + CH) / CELL) + 1, j0 = Math.floor(z0 / CELL) - 1, j1 = Math.floor((z0 + CH) / CELL) + 1;
-  const streetCol = (x, z) => { const k = kindAt(x, z); return k === 'shita' || k === 'temple' ? 0xbcae8e : 0x969186; };
+  const streetCol = (x, z) => { const k = kindAt(x, z); return k === 'shita' || k === 'temple' ? 0xcfc2a2 : 0xaca79c; };
   for (let i = i0; i <= i1; i++) {
     const lx = lineX(i); if (lx < x0 || lx >= x0 + CH) continue;
     for (let j = j0; j <= j1; j++) {
@@ -351,15 +351,12 @@ function buildChunk(cx, cz) {
     const ax = p.x[i], az = p.z[i], bx = p.x[i + 1], bz = p.z[i + 1], L = Math.hypot(bx - ax, bz - az) || 1, tx = (bx - ax) / L, tz = (bz - az) / L, nx = -tz, nz = tx;
     if (p.kind === 'exp') { buildExpSeg(B, GB, cols, p, i, ax, az, bx, bz, tx, tz, nx, nz, L); continue; }
     const h = p.kind === 'path' ? p.half : p.half - (p.half === ART_EXP_HALF ? 0 : 0);
-    const col = p.kind === 'path' ? 0xc9bb98 : 0x86827a, hint = [(ax + bx) / 2, -1e4, (az + bz) / 2];
+    const col = p.kind === 'path' ? 0xd6caa8 : 0xa39f97, hint = [(ax + bx) / 2, -1e4, (az + bz) / 2];
     const ya = yOn(ax, az), yb = yOn(bx, bz), wet = site((ax + bx) / 2, (az + bz) / 2).sd < 2;
     const e = (x, z, sd, y) => [x + nx * h * sd, y + 0.12, z + nz * h * sd];
     const yl = (x, z, sd) => wet ? (sd ? yOn(x + nx * h * sd * 0.98, z + nz * h * sd * 0.98) : 0) : terrainH(x + nx * h * sd, z + nz * h * sd);
     B.quad(e(ax, az, 1, wet ? ya : yl(ax, az, 1)), e(bx, bz, 1, wet ? yb : yl(bx, bz, 1)), e(bx, bz, -1, wet ? yb : yl(bx, bz, -1)), e(ax, az, -1, wet ? ya : yl(ax, az, -1)), col, 0, -999, hint);
-    if (p.kind === 'art' && (i % 2 === 0)) { // centre line
-      const mx = (ax + bx) / 2, mz = (az + bz) / 2, my = (ya + yb) / 2 + 0.16;
-      B.quad([mx - tx * 2.5 + nx * 0.2, my, mz - tz * 2.5 + nz * 0.2], [mx + tx * 2.5 + nx * 0.2, my, mz + tz * 2.5 + nz * 0.2], [mx + tx * 2.5 - nx * 0.2, my, mz + tz * 2.5 - nz * 0.2], [mx - tx * 2.5 - nx * 0.2, my, mz - tz * 2.5 - nz * 0.2], 0xe2c25a, 0, -999, [mx, -1e4, mz]);
-    }
+    if (p.kind === 'art') laneMarks(B, p, i, ax, az, bx, bz, tx, tz, nx, nz, h, wet ? () => (ya + yb) / 2 : (x, z) => terrainH(x, z), true);
     if (wet) { // a bridge: girder, vermilion rails and wooden piers into the water
       for (const sd of [-1, 1]) {
         const a = [ax + nx * h * sd, ya, az + nz * h * sd], b = [bx + nx * h * sd, yb, bz + nz * h * sd];
@@ -388,10 +385,10 @@ const wireMat = new THREE.LineBasicMaterial({ color: COL.sumi });
 function buildExpSeg(B, GB, cols, p, i, ax, az, bx, bz, tx, tz, nx, nz, L) {
   const da = p.deck[i], db = p.deck[i + 1], h = EXP_HALF, hint = [(ax + bx) / 2, (da + db) / 2 - 0.8, (az + bz) / 2];
   const E = (x, z, sd, y, dy = 0) => [x + nx * h * sd, y + dy, z + nz * h * sd];
-  B.quad(E(ax, az, 1, da), E(bx, bz, 1, db), E(bx, bz, -1, db), E(ax, az, -1, da), 0x8a867e, 0, -999, hint);
-  B.quad(E(ax, az, 1, da, -1.7), E(bx, bz, 1, db, -1.7), E(bx, bz, -1, db, -1.7), E(ax, az, -1, da, -1.7), 0x9b998f, 0, -999, hint);
+  B.quad(E(ax, az, 1, da), E(bx, bz, 1, db), E(bx, bz, -1, db), E(ax, az, -1, da), 0xa39f97, 0, -999, hint);
+  B.quad(E(ax, az, 1, da, -1.7), E(bx, bz, 1, db, -1.7), E(bx, bz, -1, db, -1.7), E(ax, az, -1, da, -1.7), 0xc4c1b8, 0, -999, hint);
   for (const sd of [-1, 1]) {
-    B.quad(E(ax, az, sd, da, -1.7), E(bx, bz, sd, db, -1.7), E(bx, bz, sd, db), E(ax, az, sd, da), 0xc9c5b8, 0, -999, hint);
+    B.quad(E(ax, az, sd, da, -1.7), E(bx, bz, sd, db, -1.7), E(bx, bz, sd, db), E(ax, az, sd, da), 0xdcd8cc, 0, -999, hint);
     // vermilion parapets, open where a ramp runs alongside
     const s = p.cum[i];
     const open = p.ramps.some((r) => r.side === sd && s > r.s0 - 6 && s < r.s0 + r.L + 6);
@@ -401,6 +398,7 @@ function buildExpSeg(B, GB, cols, p, i, ax, az, bx, bz, tx, tz, nx, nz, L) {
       if (i % 2 === 0) { B.cyl(a[0], a[1], a[2], 0.28, 0.24, 1.35, 6, COL.shu); B.cyl(a[0], a[1] + 1.35, a[2], 0.34, 0.04, 0.7, 6, COL.kin); }
     }
   }
+  laneMarks(B, p, i, ax, az, bx, bz, tx, tz, nx, nz, h, null, false, da, db);
   // pillars every third sample (about 36 m) with a cap beam
   if (i % 3 === 0) {
     const y0 = terrainH(ax, az), top = da - 1.7;
@@ -414,22 +412,37 @@ function buildExpSeg(B, GB, cols, p, i, ax, az, bx, bz, tx, tz, nx, nz, L) {
   // ramps beside this segment
   for (const r of p.ramps) {
     const s0 = p.cum[i], s1 = p.cum[i + 1]; if (s1 < r.s0 || s0 > r.s0 + r.L) continue;
-    const qa = { p, i, u: 0, s: Math.max(s0, r.s0), off: r.side * 14 }, qb = { p, i, u: 1, s: Math.min(s1, r.s0 + r.L), off: r.side * 14 };
+    const qa = { p, i, u: 0, s: Math.max(s0, r.s0), off: r.side * 16 }, qb = { p, i, u: 1, s: Math.min(s1, r.s0 + r.L), off: r.side * 16 };
     qa.u = (qa.s - s0) / (s1 - s0 || 1); qb.u = (qb.s - s0) / (s1 - s0 || 1);
     const ya = rampAt(qa), yb = rampAt(qb); if (!isFinite(ya) || !isFinite(yb)) continue;
     const pa = [lerp(ax, bx, qa.u), lerp(az, bz, qa.u)], pb = [lerp(ax, bx, qb.u), lerp(az, bz, qb.u)];
-    const R0 = (pt, lat, y, dy = 0) => [pt[0] + nx * lat * r.side, y + dy, pt[1] + nz * lat * r.side], rh = [(pa[0] + pb[0]) / 2 + nx * 14 * r.side, (ya + yb) / 2 - 0.6, (pa[1] + pb[1]) / 2 + nz * 14 * r.side];
-    B.quad(R0(pa, 9, ya), R0(pb, 9, yb), R0(pb, 19, yb), R0(pa, 19, ya), 0x6e7076, 0, -999, rh);
-    B.quad(R0(pa, 19, ya, -1.2), R0(pb, 19, yb, -1.2), R0(pb, 19, yb), R0(pa, 19, ya), 0xc9c5b8, 0, -999, rh);
-    B.quad(R0(pa, 19, ya), R0(pb, 19, yb), R0(pb, 19, yb, 0.9), R0(pa, 19, ya, 0.9), COL.shu, 0, -999, [rh[0], rh[1] + 1, rh[2]]);
+    const R0 = (pt, lat, y, dy = 0) => [pt[0] + nx * lat * r.side, y + dy, pt[1] + nz * lat * r.side], rh = [(pa[0] + pb[0]) / 2 + nx * 16 * r.side, (ya + yb) / 2 - 0.6, (pa[1] + pb[1]) / 2 + nz * 16 * r.side];
+    B.quad(R0(pa, 10.5, ya), R0(pb, 10.5, yb), R0(pb, 21.5, yb), R0(pa, 21.5, ya), 0xa39f97, 0, -999, rh);
+    B.quad(R0(pa, 21.5, ya, -1.2), R0(pb, 21.5, yb, -1.2), R0(pb, 21.5, yb), R0(pa, 21.5, ya), 0xd9d5c8, 0, -999, rh);
+    B.quad(R0(pa, 21.5, ya), R0(pb, 21.5, yb), R0(pb, 21.5, yb, 0.9), R0(pa, 21.5, ya, 0.9), COL.shu, 0, -999, [rh[0], rh[1] + 1, rh[2]]);
   }
 }
 
+// white lane lines, as on the Wind Lover highway: they carry the speed. Edge lines run continuous, lanes are
+// dashed, and arterials get a yellow centre line.
+function laneMarks(B, p, i, ax, az, bx, bz, tx, tz, nx, nz, half, yAt, centre, da, db) {
+  const y = (u, off) => { const x = lerp(ax, bx, u) + nx * off, z = lerp(az, bz, u) + nz * off; return (yAt ? yAt(x, z) : lerp(da, db, u)) + 0.17; };
+  const L = Math.hypot(bx - ax, bz - az);
+  const mark = (off, u0, u1, w, col) => {
+    const x0 = lerp(ax, bx, u0), z0 = lerp(az, bz, u0), x1 = lerp(ax, bx, u1), z1 = lerp(az, bz, u1);
+    B.quad([x0 + nx * (off + w), y(u0, off), z0 + nz * (off + w)], [x1 + nx * (off + w), y(u1, off), z1 + nz * (off + w)], [x1 + nx * (off - w), y(u1, off), z1 + nz * (off - w)], [x0 + nx * (off - w), y(u0, off), z0 + nz * (off - w)], col, 0, -999, [x0, -1e4, z0]);
+  };
+  for (const sd of [-1, 1]) mark(sd * (half - 1.4), 0, 1, 0.16, 0xf6f4ee);
+  const dash = 6 / Math.max(L, 1);
+  if (i % 2 === 0) for (const sd of [-1, 1]) mark(sd * half * 0.5, 0.5 - dash / 2, 0.5 + dash / 2, 0.14, 0xf6f4ee);
+  if (centre) for (const sd of [-1, 1]) mark(sd * 0.35, 0, 1, 0.1, 0xe9c55c);
+}
+
 // one city block: lots by district kind
-const WOOD_PAL = [COL.kogecha, COL.cha, COL.benigara, COL.shikkui, 0x5a4636, 0x3e3430];
-const MID_PAL = [0x4a4448, COL.benigara, COL.cha, 0x7b7570, COL.kogecha, 0x5d6a73, 0x8a7e6c];
+const WOOD_PAL = [0x8f7560, 0xa08268, 0xb07462, COL.shikkui, 0x86725f, 0x977f6e];
+const MID_PAL = [0xc9b9a8, 0xd7c3b0, 0xb9a99a, 0xcfc8be, 0xc6aca0, 0xa9b4bc, 0xd8cfc0];
 const RESI_PAL = [COL.shironeri, 0xd9d0bd, 0xc4bca8, 0xb5b9b4, 0xd8c9b0, 0xa8b0b4];
-const PORT_PAL = [COL.benigara, COL.ai, COL.nezumi, 0x6f7f6a, 0x8f7a5a];
+const PORT_PAL = [0xc88a74, 0x8fa8c0, 0xb8b6b0, 0xa8b8a0, 0xc8b496];
 function buildBlock(B, GB, SB, cols, wires, i, j, R) {
   const r = cellRect(i, j), kind = kindAt(r.xm, r.zm), K = KINDS[kind];
   if (r.x1 - r.x0 < 6 || r.z1 - r.z0 < 6) return;
@@ -449,7 +462,7 @@ function buildBlock(B, GB, SB, cols, wires, i, j, R) {
   for (let a = 0; a < nx; a++) for (let b = 0; b < nz; b++) {
     const lx0 = r.x0 + a * wB + gap / 2, lx1 = r.x0 + (a + 1) * wB - gap / 2, lz0 = r.z0 + b * dB + gap / 2, lz1 = r.z0 + (b + 1) * dB - gap / 2;
     if (lx1 - lx0 < 3 || lz1 - lz0 < 3) continue;
-    if (!rectClear(lx0, lz0, lx1, lz1, 2.5)) continue;
+    if (!rectClear(lx0, lz0, lx1, lz1, 6)) continue;
     const x = (lx0 + lx1) / 2, z = (lz0 + lz1) / 2, hw = (lx1 - lx0) / 2, hd = (lz1 - lz0) / 2, y = Math.min(terrainH(lx0, lz0), terrainH(lx1, lz1), terrainH(lx0, lz1), terrainH(lx1, lz0)) - 0.3;
     // facing: the nearest street side
     let face = null;

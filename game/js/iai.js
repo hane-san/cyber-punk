@@ -55,10 +55,12 @@ const IAI = {
     killIjin(e, perfect);
     // the frame: mie camera from the side, sumi and vermilion, focus lines on the figure
     // the side camera goes where there is open air: try both sides, nearer if walls are close
-    this.mie = 1; this.mieDist = 7.5; let pick = null;
-    for (const sd of Math.random() < 0.5 ? [1, -1] : [-1, 1]) for (const dd of [7.5, 5, 3.5]) {
-      if (pick) break; const a = P.yaw + sd * 1.35, x = e.pos.x + Math.sin(a) * dd, z = e.pos.z + Math.cos(a) * dd;
-      if (pointFree(x, z, e.pos.y + 1.5) && pointFree((x + e.pos.x) / 2, (z + e.pos.z) / 2, e.pos.y + 1.5)) pick = [a, dd];
+    // framed on the point between the rider and the figure, so both stand in the picture
+    this.mie = 1; this.mieDist = 9; this.mieC = (this.mieC || new V3()).copy(P.pos).lerp(e.pos, 0.5); let pick = null;
+    const C = this.mieC;
+    for (const sd of Math.random() < 0.5 ? [1, -1] : [-1, 1]) for (const dd of [9, 7, 5]) {
+      if (pick) break; const a = P.yaw + sd * 1.45, x = C.x + Math.sin(a) * dd, z = C.z + Math.cos(a) * dd;
+      if (pointFree(x, z, e.pos.y + 1.5) && pointFree((x + C.x) / 2, (z + C.z) / 2, e.pos.y + 1.5)) pick = [a, dd];
     }
     if (pick) { this.mieYaw = pick[0]; this.mieDist = pick[1]; } else { this.mieYaw = P.yaw + Math.PI; this.mieDist = 6; }
     tmp2.copy(e.pos); tmp2.y += 2; tmp2.project(camera); post.uniforms.uRadC.value.set(tmp2.x * 0.5 + 0.5, tmp2.y * 0.5 + 0.5);

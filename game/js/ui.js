@@ -138,7 +138,7 @@ function drawMap() {
 }
 
 // ---- sheets
-const TIMES = ['移ろう', '夕', '夜', '暁', '昼'];
+const TIMES = ['移ろう', '暁', '昼', '夕', '宵', '霞'];
 function refreshMenu() {
   $('#mTime').textContent = `時刻：${TIMES[moodFix + 1]}`; $('#mSound').textContent = `音：${sfx.on ? 'あり' : 'なし'}`; $('#mThreat').textContent = `妖：${threatOn ? '出る' : '出ない'}`;
   $('#recDist').textContent = (P.dist / 1000).toFixed(1); $('#recSouls').textContent = P.souls;
@@ -150,7 +150,7 @@ function togglePause(force) {
 }
 $('#btnMenu').addEventListener('click', () => togglePause());
 $('#mClose').addEventListener('click', () => togglePause(false));
-$('#mTime').addEventListener('click', () => { moodFix = moodFix >= 3 ? -1 : moodFix + 1; store.set('ukiyo.mood', moodFix); refreshMenu(); });
+$('#mTime').addEventListener('click', () => { moodFix = moodFix >= 4 ? -1 : moodFix + 1; store.set('ukiyo.mood2', moodFix); refreshMenu(); });
 $('#mSound').addEventListener('click', () => { sfx.toggle(); refreshMenu(); });
 $('#mThreat').addEventListener('click', () => { threatOn = !threatOn; store.set('ukiyo.threat', threatOn); if (!threatOn) { for (const f of forms) if (f.mode !== 'pass') f.done = true; for (const e of ijins) e.alive = false, e.deadT = 9; } refreshMenu(); });
 $('#mHome').addEventListener('click', () => { placeStart(); togglePause(false); });

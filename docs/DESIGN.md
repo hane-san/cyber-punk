@@ -12,22 +12,18 @@ The game is meant to become an open-world RPG. This first prototype settles **th
 
 There are no turrets. You survive by going fast and slipping through, and you answer the masked figures with a single cut.
 
-## The look: a woodblock print
+## The look: a pale print after Wind Lover
 
-- **Flat tones.** The print material (`ukiyoMat`) gives two or three tones per face, lit or shaded, with no gradients. The surface detail is painted in the shader by surface type (`aWin`): office glass, wooden fronts with lattices and paper screens, roof tile rows, flats with balconies, warehouse sheeting, and glowing shop fronts.
-- **Sumi lines.** A post pass draws the outlines:
-  - silhouettes and outer corners come from the Laplacian of 1/z, drawn on the near side;
-  - inner creases come from the positive side;
-  - painted detail comes from colour edges.
-  - Lines are thicker near the camera, thinner and indigo-tinted far away, and fade into the mist.
-- **Sky (bokashi).** A dark ichimonji band sits only at the very top, over a pale middle and a warm horizon. The sun or moon is a flat disc, and two bands of suyari-gasumi have wavy edges.
-- **Mist (霞).** Fog goes to the mist colour, and ground mist swallows the feet of distant buildings, as in Hiroshige.
-- **Washi.** The paper grain and fibre are independent of resolution, and the palette is pulled slightly toward paper.
-- **Water** is indigo with drifting seigaiha (青海波) scallops.
-- **Far mountains** ride with the camera: Fuji to the west-south-west (Hokusai's concave slopes and a jagged snow line), the Tanzawa and Okutama ranges, and twin-peaked Tsukuba to the north-east.
-- **The hour** turns through 夕 → 夜 → 暁 → 昼 over 12 minutes. The menu can fix it.
-  - At night: lit windows, neon signs (32 kanji boards in an atlas), paper lanterns.
-  - At dusk the sun sets behind Fuji.
+The first cut was a hard woodblock print: heavy sumi lines and deep colours. The owner preferred the pale Wind Lover look, so the picture now follows it. It is closer to a shin-hanga print (Kawase Hasui) than to an Edo broadsheet: the colour is laid down thin, the air is full of light, and the lines are a faint key block.
+
+- **Tones.** Soft Lambert-like shading runs between a shade colour and a light colour. Every surface goes through `wash()`: a mix of 20% toward the hour's pale wash colour, with darks floored at 22% of it, so nothing reaches black. The building palettes are pastel: pale grey glass, light earth and pale stone, faded vermilion and soft slate roofs.
+- **Lines.** The post pass keeps only silhouettes and soft creases, 1–1.6 px wide at 32% strength, in a blue-grey taken from the sky, and fades them out by about 1.4 km. Colour-edge lines are gone. In the strike frame the lines come back to full sumi.
+- **Sky.** This is the Wind Lover sky: a gradient from the horizon to the zenith, a warm glow round the sun, and a soft band where the sky meets the land. On top of it: drifting soft clouds near the horizon, and a faint bokashi at the very top.
+- **Hour.** The moods are pale, after Wind Lover: 暁 (rose dawn), 昼 (pale gold), 夕 (amber), 宵 (lilac blue hour) and 霞 (teal mist). They drift over 12 minutes, and the menu can fix one. It never goes fully dark. At 宵 the windows, signs and lanterns come on softly.
+- **Mist** is long and pale (420–2300 m), with a lighter ground mist.
+- **Water** is pale aqua, with faint seigaiha (青海波) scallops.
+- **Speed.** White lane lines run on every arterial and deck: continuous edges, dashed lanes and a yellow centre line on arterials. Speed streaks rush out of the vanishing point above about 150 km/h.
+- **Far mountains** (Fuji, Tanzawa and Okutama, Tsukuba) are pale silhouettes that ride with the camera.
 
 ## The map: a stylised Tokyo
 
@@ -39,7 +35,7 @@ Units are metres. +x is east, +z is south, and the origin is the palace. The wor
 | Water | The bay below a coastline, with reclaimed islands (台場, 有明, 豊洲, 晴海, 品川埠頭, 新木場). Rivers: 隅田川, 荒川, 神田川, 日本橋川, 目黒川, and the palace moat. Banks are gentle, so you can ride in, skip across at speed and ride out. |
 | Rings | 内堀通り, 外堀通り (with the 都心環状線 expressway over it), 明治通り, 山手通り and 環七. |
 | Radials | 新宿通り, 青梅街道, 玉川通り, 中山道, 日光街道, 京葉道路, 晴海通り, 第一京浜, 本郷通り and 六本木通り, plus 中央通り from 新橋 to 上野. |
-| Expressways | Decks 15 m over the land: 都心環状線, 新宿線, 渋谷線, 池袋線, 向島線 (along the Sumida) and 湾岸線 (across the bay to 台場). Ramp pairs every 900 m, with up-ramps on the left. Vermilion parapets with giboshi posts are soft walls. Pillars stand in the median. |
+| Expressways | Decks 26 m wide, 15 m over the land: 都心環状線, 新宿線, 渋谷線, 池袋線, 向島線 (along the Sumida) and 湾岸線 (across the bay to 台場). Ramp pairs every 900 m, with up-ramps on the left. Vermilion parapets with giboshi posts are soft walls. Pillars stand in the median. |
 | Local streets | An 80 m grid, jittered, with 160 m blocks among towers. Narrow alleys (路地) run in the old town, lines end at random (T-junctions), and there are no streets in parks or on water. |
 | Districts | 24 named districts. Each kind builds differently: `tower`, `neon`, `shita` (wooden town houses), `temple`, `resi`, `port`, `park` and `palace`. A title cartouche (名所東京百景) appears when one takes over. |
 | Landmarks | 天守 on the palace with its moat walls, the red 電波塔, the 634 m 天の塔, 雷門 with its lantern and the 仲見世, 浅草寺 and its pagoda, the 大鳥居 and a tunnel of a thousand torii down the shrine approach, the Ueno pagoda among cherry trees, four kabuki screens over the 渋谷 crossing, the 日本橋 lamps, the bay wheel, and the twin-towered city hall in 新宿. |
@@ -51,17 +47,18 @@ The start is 日本橋, the zero milestone, facing south down the Ginza street.
 The board keeps the Wind Lover handling. These are the numbers to protect:
 - **Lean.** Lean rides a damped spring (natural frequency 1.55 × roll, damping 0.62). Yaw comes from lean as K·tan(lean)/v^0.88.
 - **Sidestep or arc.** A short input is mostly a sidestep (the float, up to 8.5 m/s). A held input comes round into an arc.
-  - Town tuning: yaw from lean starts at 42% (Wind Lover: 30%) and is full after about 1.4 s of holding (Wind Lover: 2.4 s), because corners are 80 m apart.
+  - Town tuning: yaw from lean starts at 36% (Wind Lover: 30%) and is full after about 1.9 s of holding (Wind Lover: 2.4 s).
 - **Grip** turns slide back into speed. Off the road, grip is 72%.
 - **Speed.**
-  - Cruise is 33 m/s (119 km/h) and the top is 76 m/s.
+  - Cruise is 36 m/s (130 km/h) and the top is 88 m/s.
   - Flow raises both while you keep going.
   - Tuck (stick up) pulls toward 1.35 × cruise, with the long pull on straights.
-  - Measured: tucking straight down 中央通り for 18 s covered 1.18 km and reached 286 km/h (peak 314 km/h with flow).
+  - Measured: tucking straight down 中央通り for 18 s covered 1.27 km, peaking at 341 km/h with flow.
+- **Room to ride.** Arterials are 38 m wide (48 m under an expressway), decks 26 m and local streets 15 m (20 m among towers). Buildings stand 6 m back from the arterials and 3 m from the streets.
 - **Road affinity** is generalised from the Wind Lover highway to every road: expressway decks, arterials and the local grid. It prefers the road that runs your way. It settles you onto the line, finishes a turn onto a road without overshooting, and nudges you back from an edge. Strong steering always wins.
 - **Walls.**
-  - More than `WALL_CRASH` (20 m/s) into a wall is a crash: a stagger of 0.7 s.
-  - Above 32 m/s a crash also costs a life.
+  - More than `WALL_CRASH` (24 m/s) into a wall is a crash: a stagger of 0.7 s.
+  - Above 36 m/s a crash also costs a life.
   - Anything shallower is a scrape.
 - **The ground.** The auto-hop clears low obstacles. You hug the ground, and you skip over water above 30 m/s.
 
@@ -73,7 +70,7 @@ The board keeps the Wind Lover handling. These are the numbers to protect:
 | Approach | The board slows toward `KAMAE_V` (26 m/s). It turns in onto the chosen figure, harder as the distance closes: rate 1.4 → 7 from 150 m to 16 m. It closes the lateral gap with the float and calms the lean. The finger nudges at 45%. Time runs at 0.86 and the frame takes a sumi wash. |
 | Wind-up | The figure reads your approach. When you will reach it within one wind-up (`WINDUP` 0.95 s), it calls ヨォー, swings its mane (毛振り), and raises the naginata. A vermilion brush ring closes on it. |
 | The window | In the last `WINDOW` (0.30 s), the ring turns gold and the tsuzumi sounds ポン. Release within `REACH` (26 m) to cut. Inside the last `PERFECT` (0.12 s), the cut is 一閃. |
-| The cut | A hit-stop of 0.17 s (0.24 for 一閃). The frame turns to sumi and paper with the vermilion kept, focus lines (集中線) close on the figure, and the brush character 斬 or 一閃 is stamped with a seal. The camera cuts to a low side view (the mie), placed where there is open air. Then the board dashes through, under a short slow-motion. The mask splits and falls; the body goes up in ink, Hokusai wave crests, and cherry petals or maple leaves. You get +15 m/s (+22 for 一閃), flow, one life back, and souls (魂). |
+| The cut | A hit-stop of 0.17 s (0.24 for 一閃). The frame turns to sumi and paper with the vermilion kept, focus lines (集中線) close on the figure, and the brush character 斬 or 一閃 is stamped with a seal. The camera cuts to a low side view (the mie), framed on the point between the rider and the figure and placed where there is open air. Then the board dashes through, under a short slow-motion. The mask splits and falls; the body goes up in ink, Hokusai wave crests, and cherry petals or maple leaves. You get +15 m/s (+22 for 一閃), flow, one life back, and souls (魂). |
 | Too early | 弾かれ. The blade is turned aside: a clang, and you are thrown off the line with a stagger of 0.6 s. |
 | Too late | The naginata comes down (radius 10.5 m) and you lose a life. |
 

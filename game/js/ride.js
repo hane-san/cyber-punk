@@ -62,7 +62,7 @@ function stepPhysics(dt) {
   // a short input is mostly a sidestep: the heading only comes round as the input is held
   if (Math.abs(steer) > 0.15 && Math.sign(steer) === P.holdSign) P.hold += dt; else { P.hold = Math.max(0, P.hold - dt * 3); if (Math.abs(steer) > 0.15) { P.holdSign = Math.sign(steer); P.hold = 0; } }
   // in town the arc comes in sooner than on the open road: corners are 80 m apart
-  const holdK = P.drifting ? 1 : lerp(0.42, 1, smooth(0.25, 1.4, P.hold));
+  const holdK = P.drifting ? 1 : lerp(0.36, 1, smooth(0.35, 1.9, P.hold));
   P.yawRate = clamp(-(P.grounded ? 34 : 27) * holdK * Math.tan(P.lean) / vTurn * (P.drifting ? 1.6 : 1), -2.4, 2.4);
   P.yaw += P.yawRate * dt;
   roadAffinity(steer, dt);
@@ -223,7 +223,7 @@ function collide() {
   }
 }
 // n points from the wall into free space. Head-on above WALL_CRASH is a crash; shallower is a scrape.
-const WALL_CRASH = 20;
+const WALL_CRASH = 24;
 let scrapeT = 0;
 function wallImpact(nx, nz, soft) {
   const vn = P.vel.x * nx + P.vel.z * nz;
@@ -243,8 +243,8 @@ function wallImpact(nx, nz, soft) {
 }
 function crash(hit) {
   shake = 1.4; P.vel.multiplyScalar(0.08); P.vel.y = 4; P.grounded = false; P.air = 0.01; P.flow = 0; P.invuln = 1.0; P.stagger = 0.7;
-  fxInk(tmp.copy(P.pos), 14); sfx.crash(); buzz([60, 30, 120]);
-  if (hit > 32) hurt('激突');
+  fxDust(tmp.copy(P.pos), tmp2.set(0, 4, 0)); fxDust(tmp.copy(P.pos), tmp2.set(3, 3, 0)); fxDust(tmp.copy(P.pos), tmp2.set(-3, 3, 0)); sfx.crash(); buzz([60, 30, 120]);
+  if (hit > 36) hurt('激突');
   else toast('激突', '', 900);
 }
 // parapets on the decks: soft walls you can still fly over, open where a ramp runs alongside

@@ -33,12 +33,12 @@ function updateCamera(dt) {
   const lAng = Math.atan2(camDir.x, camDir.z) + lookAng;
   lookSm.set(P.pos.x + Math.sin(lAng) * 48, camBaseY + 0.9, P.pos.z + Math.cos(lAng) * 48);
   if (IAI.target && kamaeK > 0.01) { _look.copy(IAI.target.pos); _look.y += 2; lookSm.lerp(_look, kamaeK * 0.35); }
-  // the mie: on the cut, the camera jumps to the side and low, holds the pose through the hit-stop, and returns
+  // the mie: on the cut, the camera moves smoothly to the side, holds the pose through the hit-stop, and returns
   const mw = IAI.freeze > 0 ? 1 : smooth(0, 1, IAI.mie);
   if (mw > 0) {
     const C = IAI.mieC;
-    _mie.set(C.x + Math.sin(IAI.mieYaw) * IAI.mieDist, C.y + 1.0, C.z + Math.cos(IAI.mieYaw) * IAI.mieDist);
-    camPos.lerp(_mie, mw); _look.copy(C); _look.y += 2.0; lookSm.lerp(_look, mw);
+    _mie.set(C.x + Math.sin(IAI.mieYaw) * IAI.mieDist * 0.7, C.y + 0.6, C.z + Math.cos(IAI.mieYaw) * IAI.mieDist * 0.7);
+    camPos.lerp(_mie, mw * 0.6); _look.copy(C); _look.y += 1.5; lookSm.lerp(_look, mw * 0.6);
   }
   camera.position.copy(camPos);
   const rumble = sf * sf * 0.09 + shake;
@@ -46,9 +46,9 @@ function updateCamera(dt) {
   camera.position.y += suspY * 0.18;
   shake = Math.max(0, shake - dt * 1.5);
   camera.lookAt(lookSm);
-  camera.rotateZ(clamp(P.yawRate, -2, 2) * 0.07 * sf * (1 - mw));
+  camera.rotateZ(clamp(P.yawRate, -2, 2) * 0.05 * sf * (1 - mw * 0.5));
   dashPunch = Math.max(0, dashPunch - dt * 2.2);
-  const fov = (portrait ? 70 : 55) + sf * 18 * S.fovKick + dashPunch * 7 - kamaeK * 6 + mw * 4;
+  const fov = (portrait ? 70 : 55) + sf * 14 * S.fovKick + dashPunch * 4 - kamaeK * 4 + mw * 2;
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = lerp(camera.fov, fov, 1 - Math.exp(-6 * dt)); applyLens(); }
 }
 function updateRider(dt) {

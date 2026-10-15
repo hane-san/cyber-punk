@@ -4,7 +4,7 @@
 // up; its brush ring closes and turns gold, and a tsuzumi sounds (ポン). Let go inside that last instant and the cut
 // lands as you pass: hit-stop in a kabuki frame, the screen cut in two, and the board flies on. Let go early and the blade is
 // turned aside (弾かれ); hold too long and the naginata comes down on you.
-const KAMAE_V = 34, REACH = 28, HITSTOP = 0.38, HITSTOP_P = 0.48, PASS_OFF = 2.8, CLOSE_OFF = 2.1, CLOSE_T = 0.075, BOOM_DELAY = 0.12;
+const KAMAE_V = 34, REACH = 28, HITSTOP = 0.22, HITSTOP_P = 0.28, PASS_OFF = 2.8, CLOSE_OFF = 2.1, CLOSE_T = 0.075, BOOM_DELAY = 0.12;
 const IAI = {
   state: 'none', target: null, t: 0, timeScale: 1, freeze: 0, freeze0: 0, slow: 0, dashFrom: new V3(), dashTo: new V3(), dashT: -1,
   mie: 0, mieYaw: 0, mieDist: 9, mieC: new V3(), phase: '', phaseT: 0, cutE: null, perfect: false, closeFrom: new V3(), closeTo: new V3(), swingP: 0, boomT: -1, lastResult: '', combo: 0, comboT: 0, near: 0, side: 1, split: 0, slashK: 0,
@@ -60,9 +60,10 @@ const IAI = {
     this.closeTo.set(e.pos.x + rx * this.side * CLOSE_OFF - h.x * 0.6, P.pos.y, e.pos.z + rz * this.side * CLOSE_OFF - h.z * 0.6);
     this.dashTo.set(e.pos.x + rx * this.side * CLOSE_OFF + h.x * 18, P.pos.y, e.pos.z + rz * this.side * CLOSE_OFF + h.z * 18);
     P.yaw = Math.atan2(h.x, h.z); fwd.set(h.x, 0, h.z);
-    const sp = Math.max(Math.hypot(P.vel.x, P.vel.z), KAMAE_V) + (perfect ? 34 : 24);
-    P.vel.set(h.x * sp, 0, h.z * sp); P.flow = Math.min(1, P.flow + (perfect ? 0.4 : 0.25)); P.invuln = 1.6;
-    P.hull = Math.min(3, P.hull + 1); P.souls += perfect ? 3 : 1; store.set('ukiyo.souls', P.souls);
+    const currentSpeed = Math.hypot(P.vel.x, P.vel.z);
+    const sp = Math.max(currentSpeed, KAMAE_V) + (perfect ? 24 : 16);
+    P.vel.lerp(new V3(h.x * sp, 0, h.z * sp), 0.6); P.flow = Math.min(1, P.flow + (perfect ? 0.3 : 0.2)); P.invuln = 1.2;
+    P.hull = Math.min(3, P.hull + 1); P.souls += perfect ? 2 : 1; store.set('ukiyo.souls', P.souls);
     cutIjin(e);
     this.phase = 'in'; this.phaseT = 0; this.swingP = 0; this.boomT = -1;
     swingStart(this.side); sfx.draw();
@@ -70,7 +71,7 @@ const IAI = {
   // the blade is through: freeze the frame
   land() {
     const e = this.cutE, perfect = this.perfect;
-    this.phase = 'hold'; this.freeze = this.freeze0 = perfect ? HITSTOP_P : HITSTOP; this.slow = 0.6;
+    this.phase = 'hold'; this.freeze = this.freeze0 = perfect ? HITSTOP_P : HITSTOP; this.slow = 0.35;
     this.mie = 1; this.mieDist = 9; this.mieC.copy(P.pos).lerp(e.pos, 0.5); let pick = null;
     const C = this.mieC;
     for (const sd of [-this.side, this.side]) for (const dd of [10, 8, 6]) {
@@ -92,9 +93,9 @@ const IAI = {
   boom() {
     const e = this.cutE; if (!e) return; this.phase = 'boom'; setTimeout(() => { if (this.phase === 'boom') this.phase = ''; }, 550);
     explodeIjin(e, this.perfect); this.cutE = null;
-    sfx.explode(this.perfect); shake = Math.max(shake, this.perfect ? 2.2 : 1.6); dashPunch = 1.3;
-    post.uniforms.uFlash.value.setRGB(1, 0.82, 0.55); this.flash = this.perfect ? 0.75 : 0.55;
-    buzz(this.perfect ? [80, 40, 180] : [60, 40, 120]);
+    sfx.explode(this.perfect); shake = Math.max(shake, this.perfect ? 1.4 : 1.0); dashPunch = 0.8;
+    post.uniforms.uFlash.value.setRGB(1, 0.86, 0.62); this.flash = this.perfect ? 0.45 : 0.35;
+    buzz(this.perfect ? [40, 25, 100] : [30, 20, 60]);
   },
   parried(e) {
     // the figure turns the blade aside: a ring of iron, sparks, and you are thrown off the line
@@ -121,13 +122,13 @@ const IAI = {
       if (k >= 1) this.land();
     }
     else if (this.freeze > 0) { this.freeze -= dtReal; this.timeScale = 0; this.swingP = lerp(0.72, 0.8, 1 - this.freeze / this.freeze0); if (this.freeze <= 0) { this.phase = 'out'; this.dashFrom.copy(P.pos); this.dashT = 0; this.boomT = BOOM_DELAY; } }
-    else if (this.slow > 0) { this.slow -= dtReal; this.timeScale = lerp(1, 0.3, smooth(0, 0.35, this.slow)); }
+    else if (this.slow > 0) { this.slow -= dtReal; this.timeScale = lerp(1, 0.5, smooth(0, 0.4, this.slow)); }
     else this.timeScale = this.state === 'kamae' ? lerp(0.9, 0.5, this.near) : 1;
-    if (this.phase === 'out') this.swingP = Math.min(1, this.swingP + dtReal * 3);
+    if (this.phase === 'out') this.swingP = Math.min(1, this.swingP + dtReal * 2);
     if (this.boomT >= 0) { this.boomT -= dtReal; if (this.boomT < 0) this.boom(); }
     swingUpdate(this.swingP, dtReal);
     if (this.dashT >= 0 && this.freeze <= 0 && this.phase !== 'in') {
-      this.dashT += dtReal / 0.12; const u = Math.min(1, this.dashT);
+      this.dashT += dtReal / 0.18; const u = Math.min(1, this.dashT);
       P.pos.x = lerp(this.dashFrom.x, this.dashTo.x, u); P.pos.z = lerp(this.dashFrom.z, this.dashTo.z, u);
       if (u >= 1) this.dashT = -1;
     }
@@ -142,8 +143,8 @@ const IAI = {
     // the frame: the stroke is drawn at once, the picture is cut in two partway through the hold, then knits back
     if (this.freeze > 0) {
       const k = 1 - this.freeze / this.freeze0;
-      this.slashK = smooth(0, 0.12, k); this.split = smooth(0.45, 0.6, k);
-    } else { this.slashK = Math.max(0, this.slashK - dtReal * 3); this.split = Math.max(0, this.split - dtReal * 3.5); }
+      this.slashK = smooth(0, 0.08, k); this.split = smooth(0.35, 0.5, k);
+    } else { this.slashK = Math.max(0, this.slashK - dtReal * 4); this.split = Math.max(0, this.split - dtReal * 4); }
     u.uSlash.value.z = this.slashK; u.uSplit.value = this.split;
     u.uMono.value = this.freeze > 0 ? 1 : Math.max(0, u.uMono.value - dtReal * 5);
     u.uRadial.value = this.freeze > 0 ? 1 : Math.max(0, u.uRadial.value - dtReal * 3);

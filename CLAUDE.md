@@ -23,8 +23,8 @@ A portrait-first mobile action prototype: a traveller in a straw hat and cape ri
 | `city.js` | colliders (`addCol`, `colNear`), neon-traditional parts (`eaveTier`, `neonTorii`, `GB.neon`), global towers and landmarks, streamed chunks (`updateChunks`, `buildChunk`, `buildExpSeg`, `buildBlock`) |
 | `rider.js` | board and rider model (`RIG`), cape cloth |
 | `ride.js` | `P` state, `stepPhysics` (Wind Lover core), `roadAffinity`, `autoHop`, `collide`, `wallImpact`, `deckWalls`, `resolveGround` |
-| `yokai.js` | particle systems (`fxAdd`), formations (sky threat paused by `SKY_THREAT`), `bullets`, ground attacks (`groundShot`), masked figures (`ijins`, `placeIjin`, wind-up and attack, `killIjin`) |
-| `iai.js` | the stance and the cut (`IAI`), `kamaeSteer`, hit-stop, mie camera, `hurt`/`die` |
+| `yokai.js` | particle systems (`fxAdd`), formations (sky threat paused by `SKY_THREAT`), `bullets`, barrage styles (`groundShot`, `fireLow`), masked figures (`ijins`, `placeIjin`, wind-up and attack, `killIjin`) |
+| `iai.js` | hold to brake, lock, auto cut (`IAI`, `LOCK_R`, `REACH`), `kamaeSteer`, hit-stop, `hurt`/`die` |
 | `sound.js` | `sfx`, procedural WebAudio |
 | `ui.js` | input (stick + hold for the stance), HUD, cartouche, stamp, map (東京絵図), sheets |
 | `main.js` | camera, rider pose, the loop, and the debug hook `window.__uk` |

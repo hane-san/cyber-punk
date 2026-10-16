@@ -37,6 +37,9 @@ const RIG = {};
   // the hover glow under the board
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: FX.dot, color: COL.asagi, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.scale.set(2.2, 2.2, 1); glow.position.y = -0.2; boardPivot.add(glow); RIG.glow = glow;
+  // the ensō of the stance, laid flat on the ground under the board
+  const ens = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 5.2), new THREE.MeshBasicMaterial({ map: FX.lock, transparent: true, opacity: 0, depthWrite: false }));
+  ens.rotation.x = -Math.PI / 2; ens.position.y = -0.08; ens.renderOrder = 3; ens.visible = false; player.add(ens); RIG.ens = ens;
 })();
 
 // ---- the cape: CW × CH points in world space, top row pinned along the shoulders

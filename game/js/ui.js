@@ -191,7 +191,7 @@ function begin(random, startId = null) {
   } else if (random) { const r = randomRoad(); placeAt(r.x, r.z, r.yaw, S.cruise); } else placeStart();
   sfx.hyoshigi();
   const hint = $('#hint'); hint.hidden = false;
-  hint.innerHTML = isTouch ? 'なぞって曲がる ／ 指を止めて長押しで構え ／ 鼓の「ポン」で離して一閃' : '矢印で走る ／ スペース長押しで構え ／ 鼓の「ポン」で離して一閃';
+  hint.innerHTML = isTouch ? 'なぞって曲がる ／ 長押しで減速、そのまま横へ ／ 寄って離せば一閃' : '矢印で走る ／ スペース長押しで減速 ／ 寄って離せば一閃';
   setTimeout(() => { hint.style.opacity = 0; }, 8000);
   setTimeout(() => { const d = distAt(P.pos.x, P.pos.z); if (d >= 0) showCart(DISTRICTS[d].name, DISTRICTS[d].sub); cartCur = d; }, 600);
 }

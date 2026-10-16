@@ -18,13 +18,15 @@ function makeFxSystem(max, additive) {
     uniforms: { uMap: { value: fxAtlas }, uScale: { value: 400 }, uMist: U.uMist, uFog: U.uFog },
     transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
     vertexShader: `attribute float aSize; attribute float aRot; attribute float aAlpha; attribute float aCell; attribute vec3 aTint;
-varying float vRot; varying float vAlpha; varying float vCell; varying vec3 vTint; varying float vD; uniform float uScale;
-void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vD = -mv.z; gl_PointSize = clamp(aSize * uScale / max(-mv.z, 0.5), 0.0, 900.0); vRot = aRot; vAlpha = aAlpha; vCell = aCell; vTint = aTint; gl_Position = projectionMatrix * mv; }`,
-    fragmentShader: `uniform sampler2D uMap; uniform vec3 uMist; uniform vec2 uFog; varying float vRot; varying float vAlpha; varying float vCell; varying vec3 vTint; varying float vD;
+varying float vRot; varying float vAlpha; varying float vCell; varying vec3 vTint; varying float vD; varying float vPs; uniform float uScale;
+void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vD = -mv.z; gl_PointSize = clamp(aSize * uScale / max(-mv.z, 0.5), 0.0, 900.0); vPs = gl_PointSize; vRot = aRot; vAlpha = aAlpha; vCell = aCell; vTint = aTint; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform sampler2D uMap; uniform vec3 uMist; uniform vec2 uFog; varying float vRot; varying float vAlpha; varying float vCell; varying vec3 vTint; varying float vD; varying float vPs;
 void main(){ vec2 p = gl_PointCoord - 0.5; float c = cos(vRot), s = sin(vRot); p = vec2(c * p.x - s * p.y, s * p.x + c * p.y) + 0.5;
   if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) discard;
   vec4 t = texture2D(uMap, vec2((vCell + p.x) / 10.0, 1.0 - p.y)); t.rgb *= vTint;
   float m = smoothstep(uFog.x, uFog.y, vD);
+  // anything at the lens, or swollen to fill the frame, gives way: the camera can fly through a blast and still see
+  float nearK = smoothstep(1.5, 9.0, vD) * (1.0 - 0.85 * smoothstep(240.0, 760.0, vPs)); t.a *= nearK;
   ${additive ? 'gl_FragColor = vec4(t.rgb * t.a * vAlpha * (1.0 - m), 1.0);' : 'if (t.a * vAlpha < 0.02) discard; gl_FragColor = vec4(mix(t.rgb, uMist, m * 0.8), t.a * vAlpha);'} }`,
   });
   const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);
@@ -222,14 +224,42 @@ function fireBullet(p, v, alt = 0, size = 1.6, low = false) {
 function updateBullets(dt) {
   for (let i = simTimers.length - 1; i >= 0; i--) { simTimers[i].t -= dt; if (simTimers[i].t <= 0) { const f = simTimers[i].fn; simTimers.splice(i, 1); f(); } }
   for (let i = bullets.length - 1; i >= 0; i--) {
-    const b = bullets[i]; b.life -= dt; b.p.addScaledVector(b.v, dt);
+    const b = bullets[i]; b.life -= dt; b.t = (b.t || 0) + dt;
+    if (b.form) { // rising to its place in the figure, then the dive
+      if (simT < b.form.at) b.p.lerp(b.form.to, 1 - Math.exp(-6 * dt));
+      else {
+        const g = b.form.g;
+        if (!g.dir) { // aim the figure's centre at where you will be, a little to one side so its rim crosses you
+          const T = Math.max(0.6, g.c.distanceTo(P.pos) / (g.sp + Math.hypot(P.vel.x, P.vel.z)) * 0.8), sd = Math.random() < 0.5 ? -1 : 1;
+          const tx = P.pos.x + P.vel.x * T - Math.cos(P.yaw) * sd * 4.5, tz = P.pos.z + P.vel.z * T + Math.sin(P.yaw) * sd * 4.5, ty = P.pos.y + 9;
+          g.dir = new V3(tx - g.c.x, ty - g.c.y, tz - g.c.z).normalize(); sfx.whoosh();
+        }
+        b.v.copy(g.dir).multiplyScalar(g.sp); b.form = null;
+      }
+    } else if (b.curve || b.wave) { // curving rounds turn their heading as they go
+      const w = b.curve + (b.wave ? b.wave * Math.cos(b.t * b.waveW + b.ph) : 0), c = Math.cos(w * dt), s2 = Math.sin(w * dt), vx = b.v.x;
+      b.v.x = vx * c + b.v.z * s2; b.v.z = -vx * s2 + b.v.z * c;
+    }
+    b.p.addScaledVector(b.v, dt);
     if (b.fx) { b.fx.p.copy(b.p); b.fx.v.set(0, 0, 0); }
     if (b.fx2) { b.fx2.p.copy(b.p); b.fx2.v.set(0, 0, 0); }
-    const d = b.p.distanceTo(P.pos);
-    if (d < 1.3 && (b.low || !P.shelter) && P.invuln <= 0 && !P.dead) { hurt(b.low ? '地走り' : '人魂'); b.life = 0; fxSparks(b.p, 0, 0, 10); }
-    else if (d < 4.8 && !b.grazed && !P.dead) { b.grazed = true; graze(); }
+    // a round sweeping past the lens must not fill the screen: fade it as it nears the camera
+    if (b.low) { const dc = b.p.distanceTo(camera.position); if (b.fx2) b.fx2.a0 = smooth(4, 16, dc); if (b.fx) b.fx.a0 = smooth(1.5, 6, dc); }
+    // swept: the nearest the round came to the rider over this frame, so fast closings cannot tunnel through
+    const rx1 = b.p.x - P.pos.x, rz1 = b.p.z - P.pos.z;
+    let dh = Math.hypot(rx1, rz1);
+    if (b.rx !== undefined) { const ex = rx1 - b.rx, ez = rz1 - b.rz, L2 = ex * ex + ez * ez; if (L2 > 1e-6) { const t = clamp(-(b.rx * ex + b.rz * ez) / L2, 0, 1); dh = Math.hypot(b.rx + ex * t, b.rz + ez * t); } }
+    b.rx = rx1; b.rz = rz1;
+    const d = b.p.distanceTo(P.pos), up = b.p.y - P.pos.y;
+    // the rider's hit is a thin upright core through the board and body (HIT_R across, much narrower than he
+    // looks); the graze ring round it is generous
+    const hit = b.low ? dh < HIT_R && up > -0.9 && up < 1.9 : d < 1.3;
+    if (hit && (b.low || !P.shelter) && P.invuln <= 0 && !P.dead) { hurt(b.low ? '地走り' : '人魂'); b.life = 0; fxSparks(b.p, 0, 0, 10); }
+    else if ((b.low ? dh < GRAZE_R && Math.abs(up) < 4 : d < 4.8) && !b.grazed && !P.dead && !b.form) { b.grazed = true; graze(); }
     // low rounds break on walls, so a building is cover
-    if (b.low && b.life > 0 && ((b.k = (b.k || 0) + 1) & 1) && !pointFree(b.p.x, b.p.z, b.p.y)) { b.life = 0; fxSparks(b.p, 0, 0, 4); }
+    if (b.low && b.life > 0 && !b.form && (b.k = (b.k + 1) % 3) === 0 && !pointFree(b.p.x, b.p.z, b.p.y)) { b.life = 0; fxSparks(b.p, 0, 0, 4); }
+    // rounds well behind you are done with
+    if (b.low && (b.p.x - P.pos.x) * Math.sin(P.yaw) + (b.p.z - P.pos.z) * Math.cos(P.yaw) < -70) b.life = 0;
     if (b.life <= 0 || b.p.y < P.pos.y - 8 || d > 900) { if (b.fx) b.fx.age = b.fx.life; if (b.fx2) b.fx2.age = b.fx2.life; bullets.splice(i, 1); }
   }
 }
@@ -242,9 +272,12 @@ function graze() {
 
 // ---- the masked figures in the road (異人): stand, turn to you, wind up, and cut
 const IJIN_ROBE = [COL.beni, 0x3a3060, COL.ai, 0x2f4a3a, COL.kin];
-function makeIjin(R) {
+// each figure has a way of throwing: 撒 straight lines (crimson robe), 弧 curves (indigo), 描 figures drawn in the
+// sky (gold), 紋 geometric crests on the ground (violet). The robe tells you which before the first round comes
+const STYLE_ROBE = [COL.beni, COL.ai, COL.kin, 0x4a3a78];
+function makeIjin(R, style) {
   const g = new THREE.Group(), B = new Builder(); g.scale.setScalar(1.35);
-  const robe = IJIN_ROBE[(R() * IJIN_ROBE.length) | 0];
+  const robe = STYLE_ROBE[style];
   B.cyl(0, 0, 0, 1.25, 0.5, 2.5, 8, robe, 0);            // the robe, flaring to the ground
   B.cyl(0, 1.5, 0, 0.62, 0.6, 0.3, 8, COL.kin);           // the sash
   for (const sd of [-1, 1]) B.frustum(sd * 0.95, 1.0, 0, 0.18, 0.55, 0.3, 0.75, 1.3, 0, robe); // the great sleeves
@@ -269,13 +302,14 @@ function makeIjin(R) {
   shadow.position.y = 0.08; g.add(shadow);
   return { g, head, mane, arm, ring, mark, mask, type };
 }
-const WINDUP = 0.95, WINDOW = 0.34, PERFECT = 0.16, ATK_R = 10.5, ATK_COOL = 1.6;
+// close in, the figure winds up its naginata: stay holding past it and the blade comes down (within ATK_HIT)
+const WINDUP = 0.7, ATK_TRIG = 14, ATK_HIT = 7, ATK_COOL = 1.4;
 const ijins = [];
 let ijinDist = 180;
 function spawnIjin() {
   const speed = Math.hypot(P.vel.x, P.vel.z); if (speed < 8) return;
   const h = _v.set(P.vel.x, 0, P.vel.z).normalize();
-  const ahead = 230 + Math.random() * 90, px = P.pos.x + h.x * ahead, pz = P.pos.z + h.z * ahead;
+  const ahead = 380 + Math.random() * 100, px = P.pos.x + h.x * ahead, pz = P.pos.z + h.z * ahead;
   const r = roadNear(px, pz, P.pos.y, Math.atan2(h.x, h.z)); if (!r) return;
   const lat = (Math.random() - 0.5) * Math.max(0, r.half * 2 - 6);
   const x = r.cx + r.nx * lat, z = r.cz + r.nz * lat, gr = ground(x, z, P.pos.y + 2);
@@ -283,14 +317,14 @@ function spawnIjin() {
   for (const c of colNear(x, z)) { const dx = x - c.x, dz = z - c.z, lx = dx * c.c - dz * c.s, lz = dx * c.s + dz * c.c; if (Math.abs(lx) < c.hw + 2 && Math.abs(lz) < c.hd + 2 && c.top > gr.h + 1) return; }
   placeIjin(x, z, gr.h);
 }
-function placeIjin(x, z, y) {
-  const R = mulberry((Math.random() * 1e9) | 0), m = makeIjin(R);
+function placeIjin(x, z, y, style = (Math.random() * 4) | 0) {
+  const R = mulberry((Math.random() * 1e9) | 0), m = makeIjin(R, style);
   m.g.position.set(x, y, z); scene.add(m.g);
-  const e = { ...m, pos: new V3(x, y, z), state: 'idle', t: 0, wind: 0, cool: 0, alive: true, deadT: 0, face: Math.random() * TAU, locked: false, shotT: 0.6 + Math.random() * 0.8, shotK: (Math.random() * GROUND_SHOTS.length) | 0 };
+  const e = { ...m, pos: new V3(x, y, z), state: 'idle', t: 0, wind: 0, cool: 0, alive: true, deadT: 0, face: Math.random() * TAU, locked: false, style, shotT: 0.4 + Math.random() * 0.8, shotK: (Math.random() * 3) | 0 };
   ijins.push(e); return e;
 }
 function updateIjins(dt) {
-  if (threatOn && started && !P.dead) { ijinDist -= Math.hypot(P.vel.x, P.vel.z) * dt; if (ijinDist <= 0 && ijins.filter((e) => e.alive).length < 8) { ijinDist = 90 + Math.random() * 130; spawnIjin(); } }
+  if (threatOn && started && !P.dead) { ijinDist -= Math.hypot(P.vel.x, P.vel.z) * dt; if (ijinDist <= 0 && ijins.filter((e) => e.alive).length < 6) { ijinDist = 150 + Math.random() * 120; spawnIjin(); } }
   // only the nearest two figures ahead throw their cuts, so the road stays readable
   const shooters = threatOn && started && !P.dead ? groundShooters() : NO_SHOOTERS;
   for (const e of ijins) {
@@ -305,39 +339,43 @@ function updateIjins(dt) {
     e.g.rotation.y = e.face;
     e.cool = Math.max(0, e.cool - dt);
     if (e.state === 'idle') {
-      // the figure reads your approach: when you will reach it within one wind-up, it begins
-      const T = d / Math.max(closing, 1);
-      if (e.cool <= 0 && closing > 4 && d < 150 && Math.abs(dy) < 7 && T < WINDUP + 0.08) { e.state = 'windup'; e.wind = WINDUP; sfx.yoo(); }
+      // close in, it winds up
+      if (e.cool <= 0 && closing > 0.5 && d < ATK_TRIG && Math.abs(dy) < 7) { e.state = 'windup'; e.wind = WINDUP; sfx.yoo(); }
       e.mane.rotation.x = Math.sin(e.t * 1.4) * 0.1; e.arm.rotation.x = lerp(e.arm.rotation.x, 0, 1 - Math.exp(-4 * dt));
       // from afar it sends its cuts along the ground at you: a short raise of the blade, then a figure of rounds
       if (shooters.includes(e) && e.cool <= 0 && d > SHOT_MIN && d < SHOT_MAX && Math.abs(dy) < 8) {
         e.shotT -= dt;
         if (e.shotT < 0.25) e.arm.rotation.x = lerp(e.arm.rotation.x, -1.4, 1 - Math.exp(-14 * dt));
-        if (e.shotT <= 0) { e.shotT = SHOT_GAP + Math.random() * 0.5; groundShot(e, d); e.arm.rotation.x = 0.9; }
+        if (e.shotT <= 0) { e.shotT = SHOT_GAP[e.style] + Math.random() * 0.4; groundShot(e, d); e.arm.rotation.x = 0.9; }
       }
     } else if (e.state === 'windup') {
       e.wind -= dt; const u = 1 - e.wind / WINDUP;
       // the head swings the mane round (毛振り), the blade rises overhead
       e.mane.rotation.x = Math.sin(e.t * (6 + u * 18)) * (0.3 + u * 1.2); e.arm.rotation.x = lerp(0, -2.2, smooth(0, 0.8, u));
-      if (e.wind <= WINDOW && !e.ponged) { e.ponged = true; sfx.pon(); }
       if (e.wind <= 0) attackIjin(e, d, dy);
     } else if (e.state === 'recover') {
       e.arm.rotation.x = lerp(e.arm.rotation.x, 0.4, 1 - Math.exp(-3 * dt)); e.mane.rotation.x *= Math.exp(-3 * dt);
       if (e.cool <= 0) e.state = 'idle';
     }
-    // the tell ring closes over the wind-up; inside the window it turns to gold
+    // the tell ring closes over the wind-up
     e.ring.visible = e.state === 'windup';
-    if (e.ring.visible) { const u = e.wind / WINDUP, s = 2.2 + 9 * u; e.ring.scale.set(s, s, 1); const inW = e.wind <= WINDOW; e.ring.material.map = inW ? FX.ringG : FX.ringA; e.ring.material.rotation += dt * 3; }
-    e.mark.visible = e.locked; if (e.locked) { const s = 6 + Math.sin(e.t * 6) * 0.4; e.mark.scale.set(s, s, 1); e.mark.material.rotation -= dt * 1.5; }
+    if (e.ring.visible) { const u = e.wind / WINDUP, s = 2.2 + 9 * u; e.ring.scale.set(s, s, 1); e.ring.material.map = FX.ringA; e.ring.material.rotation += dt * 3; }
+    // the lock mark: it pops in large and settles, and turns gold once the figure is within reach of the cut
+    e.mark.visible = e.locked;
+    if (e.locked) { e.lockT = (e.lockT || 0) + dt; const pop = 1 + 1.4 * Math.exp(-e.lockT * 9), s = (6 + Math.sin(e.t * 6) * 0.4) * pop; e.mark.scale.set(s, s, 1); e.mark.material.rotation -= dt * (IAI.inReach ? 4 : 1.5); e.mark.material.map = IAI.inReach ? FX.ringG : FX.lock; }
+    else e.lockT = 0;
     if (d > 800 || (d > 320 && (dx * vx + dz * vz) > 0)) e.alive = false, e.deadT = 9;
   }
   for (let i = ijins.length - 1; i >= 0; i--) { const e = ijins[i]; if (!e.alive && e.deadT > 1.4) { scene.remove(e.g); ijins.splice(i, 1); } }
 }
-// ---- ground attacks: rounds sent low along the road toward the rider. They come at GROUND_SPD on top of your own
-// pace, so from 200 m a figure arrives in about two and a half seconds: read the shape, and lean through the gap.
-// Inside SHOT_MIN the figure stops throwing and readies its naginata, so the last stretch before the cut is clean.
-const SHOT_MIN = 90, SHOT_MAX = 270, SHOT_GAP = 1.15, GROUND_SPD = 34, NO_SHOOTERS = [];
-const GROUND_SHOTS = ['扇', '弧', '連', '双'];
+// ---- ground attacks: four ways of throwing, by the figure's robe. Rounds come at you on top of your own pace, so
+// the speed you choose is how you read them: brake and the field opens up and the board slides freely sideways;
+// run flat out and they come too fast to thread. Only the nearest two figures ahead throw. Inside SHOT_MIN a figure
+// stops and readies its naginata.
+const SHOT_MIN = 28, SHOT_MAX = 430, NO_SHOOTERS = [], HIT_R = 0.75, GRAZE_R = 3.4;
+const SHOT_GAP = [1.15, 1.45, 2.3, 1.8];
+const STYLE_SHOTS = [['扇', '乱', '並'], ['鎌', '蛇', '波'], ['輪', '星', '花'], ['環', '華', '巴', '格']];
+const STYLE_HALO = [[0.95, 0.36, 0.2], [0.32, 0.44, 0.95], [0.98, 0.78, 0.28], [0.72, 0.42, 0.95]];
 function groundShooters() {
   const out = [];
   for (const e of ijins) {
@@ -349,30 +387,59 @@ function groundShooters() {
   out.sort((a, b) => a[0] - b[0]);
   return out.slice(0, 2).map((o) => o[1]);
 }
+// one low round: velocity v, optional curve (rad/s turn of its heading), wave (a swaying curve), and form (a point
+// in the air it rises to and holds, before the whole figure dives at you together)
+function fireLow(p, v, style, opt = {}) {
+  const alt = style === 1 || style === 3 ? 1 : 0, size = opt.size || 3.0;
+  const b = { p: p.clone(), v: v.clone(), life: opt.life || 7, low: true, grazed: false, curve: opt.curve || 0, wave: opt.wave || 0, waveW: opt.waveW || 0, ph: opt.ph || 0, t: 0, form: opt.form || null, k: (Math.random() * 3) | 0,
+    fx: fxAdd(FXN, alt ? 'tamaB' : 'tama', p, v, opt.life || 7, size, size, { a: 1, rot: 0 }) };
+  b.fx2 = fxAdd(FXA, 'dot', p, v, opt.life || 7, size * (opt.halo || 2.1), size * (opt.halo || 2.1), { a: 1, tint: STYLE_HALO[style] });
+  bullets.push(b); return b;
+}
 function groundShot(e, d) {
-  const o = new V3(e.pos.x, e.pos.y + 1.15, e.pos.z);
+  const o = new V3(e.pos.x, e.pos.y + 1.15, e.pos.z), sp0 = Math.hypot(P.vel.x, P.vel.z);
   // aim a little ahead of where you will be, not where you are
-  const T = d / (GROUND_SPD + Math.hypot(P.vel.x, P.vel.z)), lead = 0.55;
+  const T = d / (34 + sp0), lead = 0.95;
   const ax = P.pos.x + P.vel.x * T * lead - o.x, az = P.pos.z + P.vel.z * T * lead - o.z, al = Math.hypot(ax, az) || 1;
-  const hx = ax / al, hz = az / al, rx = -hz, rz = hx;
-  const shot = (dirx, dirz, lat = 0, delay = 0, alt = 0, sp = GROUND_SPD) => {
-    const p = o.clone(); p.x += rx * lat; p.z += rz * lat;
-    const v = new V3(dirx * sp, 0, dirz * sp);
-    if (delay) setTimeoutSim(() => fireBullet(p, v, alt, 3.4, true), delay); else fireBullet(p, v, alt, 3.4, true);
-  };
-  const name = GROUND_SHOTS[e.shotK]; e.shotK = (e.shotK + 1 + (Math.random() * 2 | 0)) % GROUND_SHOTS.length;
-  if (name === '扇') { // a fan of nine, opening as it comes
-    for (let k = 0; k < 9; k++) { const a = (k - 4) * 0.075, c = Math.cos(a), s = Math.sin(a); shot(hx * c + rx * s, hz * c + rz * s, 0, 0, k & 1); }
-  } else if (name === '弧') { // a wall across the road with one gap in it
-    const gap = (Math.random() - 0.5) * 12;
-    for (let x = -15; x <= 15; x += 2.0) if (Math.abs(x - gap) > 3.4) shot(hx, hz, x, 0, 0);
-  } else if (name === '連') { // a stream of five, each aimed as it leaves
-    for (let k = 0; k < 5; k++) shot(hx, hz, 0, k * 0.14, 1, GROUND_SPD + 6);
-  } else { // two lines that close like scissors, crossing on your path
-    for (const sd of [-1, 1]) for (let k = 0; k < 6; k++) { const a = -sd * 0.11; const c = Math.cos(a), s = Math.sin(a); shot(hx * c + rx * s, hz * c + rz * s, sd * 9, k * 0.12, sd > 0 ? 1 : 0); }
+  const hx = ax / al, hz = az / al, rx = -hz, rz = hx, aim = Math.atan2(hx, hz), st = e.style;
+  const dirV = (a, sp) => new V3(Math.sin(a) * sp, 0, Math.cos(a) * sp);
+  const at = (lat = 0, fwdO = 0) => new V3(o.x + rx * lat + hx * fwdO, o.y, o.z + rz * lat + hz * fwdO);
+  const later = (t, fn) => { if (t > 0) setTimeoutSim(fn, t); else fn(); };
+  const shapes = STYLE_SHOTS[st], name = shapes[e.shotK % shapes.length]; e.shotK = (e.shotK + 1 + (Math.random() * 2 | 0)) % shapes.length;
+  if (name === '扇') { // two waves of an eleven-way fan, the second set into the gaps of the first
+    for (let w = 0; w < 2; w++) for (let k = 0; k < 11; k++) { const a = aim + (k - 5 + w * 0.5) * 0.085; later(w * 0.3, () => fireLow(o, dirV(a, 36), st)); }
+  } else if (name === '乱') { // straight lines thrown every which way across the road
+    for (let k = 0; k < 18; k++) { const a = aim + (Math.random() - 0.5) * 1.1, sp = 28 + Math.random() * 16; later(Math.random() * 0.7, () => fireLow(o, dirV(a, sp), st)); }
+  } else if (name === '並') { // three lanes of six, side by side, with a fourth lane left open at random
+    const open = (Math.random() * 4) | 0;
+    for (let l = 0; l < 4; l++) if (l !== open) for (let k = 0; k < 6; k++) { const lat = (l - 1.5) * 5.5; later(k * 0.09, () => fireLow(at(lat), dirV(aim, 38), st)); }
+  } else if (name === '鎌') { // sickles from either side, swinging in across your line
+    for (const sd of [-1, 1]) for (let k = 0; k < 8; k++) later(k * 0.08, () => fireLow(o, dirV(aim + sd * 0.8, 32), st, { curve: -sd * 0.55 }));
+  } else if (name === '蛇') { // a serpent wall: the launch sweeps back and forth as the rounds bend
+    for (let k = 0; k < 26; k++) { const a = aim + Math.sin(k * 0.42) * 0.6; later(k * 0.055, () => fireLow(o, dirV(a, 30), st, { curve: Math.cos(k * 0.42) * 0.22 })); }
+  } else if (name === '波') { // four swaying streams
+    for (let s4 = 0; s4 < 4; s4++) for (let k = 0; k < 6; k++) later(k * 0.11, () => fireLow(o, dirV(aim + (s4 - 1.5) * 0.22, 33), st, { wave: 0.9, waveW: 3.2, ph: s4 * 1.6 }));
+  } else if (st === 2) { // figures drawn in the air: the rounds rise to their places, hold, and the whole figure dives at you
+    const c = new V3(o.x, o.y + 17, o.z), R = 12, pts = [];
+    if (name === '輪') for (let k = 0; k < 18; k++) { const a = k / 18 * TAU; pts.push([Math.cos(a), Math.sin(a)]); }
+    else if (name === '星') { const V = [0, 1, 2, 3, 4].map((i) => [Math.sin(i * TAU * 2 / 5), Math.cos(i * TAU * 2 / 5)]); for (let ed = 0; ed < 5; ed++) for (let t = 0; t < 5; t++) { const A = V[ed], B = V[(ed + 1) % 5]; pts.push([lerp(A[0], B[0], t / 5), lerp(A[1], B[1], t / 5)]); } }
+    else { const kk = 3 + (Math.random() * 2 | 0); for (let k = 0; k < 30; k++) { const a = k / 30 * TAU, r = Math.abs(Math.cos(kk * a / 2)); pts.push([Math.cos(a) * r, Math.sin(a) * r]); } }
+    const g = { c, at: simT + 1.35, dir: null, sp: 42 };
+    pts.forEach(([u, w], k) => { const to = new V3(c.x + rx * u * R, c.y + w * R, c.z + rz * u * R); setTimeoutSim(() => fireLow(o, new V3(), st, { form: { to, g, at: g.at }, life: 8, size: 2.6, halo: 1.5 }), k * 0.025); });
+    sfx.nohkan();
+  } else if (name === '環') { // two rings, opening as they come, the second set into the gaps
+    for (let w = 0; w < 2; w++) { const rot = Math.random() * TAU; for (let k = 0; k < 24; k++) { const a = rot + (k + w * 0.5) / 24 * TAU; later(w * 0.4, () => fireLow(o, dirV(a, 14).addScaledVector(new V3(hx, 0, hz), 20), st)); } }
+  } else if (name === '華') { // a flower of three to five petals
+    const kk = 3 + (Math.random() * 3 | 0), rot = Math.random() * TAU;
+    for (let k = 0; k < 40; k++) { const a = rot + k / 40 * TAU, r = Math.abs(Math.cos(kk * a / 2)); fireLow(o, dirV(a, 6 + 15 * r).addScaledVector(new V3(hx, 0, hz), 18), st); }
+  } else if (name === '巴') { // three arms turning, like the tomoe crest
+    const rot = Math.random() * TAU, turn = Math.random() < 0.5 ? 1 : -1;
+    for (let arm = 0; arm < 3; arm++) for (let k = 0; k < 14; k++) { const a = rot + arm * TAU / 3 + turn * k * 0.16; later(k * 0.06, () => fireLow(o, dirV(a, 16).addScaledVector(new V3(hx, 0, hz), 17), st)); }
+  } else { // 格: a lattice of rows, each with two gaps
+    for (let row = 0; row < 4; row++) { const g1 = (Math.random() - 0.5) * 16, g2 = g1 + (Math.random() < 0.5 ? 1 : -1) * (7 + Math.random() * 5); for (let x = -15; x <= 15; x += 2.5) if (Math.abs(x - g1) > 2.6 && Math.abs(x - g2) > 2.6) later(row * 0.35, () => fireLow(at(x), dirV(aim, 30), st)); }
   }
   // the cut leaves a low sweep of ink at the figure's feet
-  for (let k = 0; k < 8; k++) { const a = Math.atan2(hx, hz) - 0.8 + k / 7 * 1.6; fxAdd(FXN, 'ink', tmp.set(e.pos.x + Math.sin(a) * 2.5, e.pos.y + 0.8, e.pos.z + Math.cos(a) * 2.5), new V3(Math.sin(a) * 9, 0.5, Math.cos(a) * 9), 0.45, 1.4, 0.6, { drag: 3 }); }
+  for (let k = 0; k < 8; k++) { const a = aim - 0.8 + k / 7 * 1.6; fxAdd(FXN, 'ink', tmp.set(e.pos.x + Math.sin(a) * 2.5, e.pos.y + 0.8, e.pos.z + Math.cos(a) * 2.5), new V3(Math.sin(a) * 9, 0.5, Math.cos(a) * 9), 0.45, 1.4, 0.6, { drag: 3 }); }
   sfx.volley();
 }
 function attackIjin(e, d, dy) {
@@ -380,8 +447,7 @@ function attackIjin(e, d, dy) {
   sfx.cut();
   // an ink crescent sweeps around the figure
   for (let k = 0; k < 18; k++) { const a = e.face - 1.6 + k / 17 * 3.2; fxAdd(FXN, 'ink', tmp.set(e.pos.x + Math.sin(a) * 7, e.pos.y + 1.4, e.pos.z + Math.cos(a) * 7), new V3(Math.sin(a) * 8, 1, Math.cos(a) * 8), 0.5, 2.2, 1, { drag: 3 }); }
-  if (d < ATK_R * 1.5 && Math.abs(dy) < 5 && !P.dead) {
-    if (IAI.state === 'kamae') IAI.cancel(true);
+  if (d < ATK_HIT && Math.abs(dy) < 5 && !P.dead) {
     if (P.invuln <= 0) { hurt('薙刀'); const k = 16 / Math.max(d, 1); P.vel.x += (P.pos.x - e.pos.x) * k; P.vel.z += (P.pos.z - e.pos.z) * k; P.vel.multiplyScalar(0.55); P.stagger = 0.5; }
   }
 }

@@ -10,7 +10,7 @@ The game is meant to become an open-world RPG. This first prototype settles **th
 - the look, a woodblock print;
 - the one combat verb, the iai cut.
 
-There are no turrets and, for now, no barrage from the sky. The threat is on the ground: masked figures in the road throw low cuts along it at you. You lock on to one from far off, glide in losing speed a little at a time, lean through its rounds, and cut as you pass; then the board flies on to the next. The loop is lock → glide and dodge → cut → re-accelerate, chained.
+There are no turrets and, for now, no barrage from the sky. The threat is the masked figures in the road and the barrages they throw. Hold to brake: the slower you go, the more freely the board slides sideways, so you choose where to brake and thread a figure and where to run flat out. Close in, the rider takes the iai stance and brakes hard. Let go right in front of the figure and the cut is automatic. Then the board bursts back to speed for the next one.
 
 ## The look: Wind Lover, made Japanese and more wistful
 
@@ -76,45 +76,63 @@ The board keeps the Wind Lover handling. These are the numbers to protect:
   - Anything shallower is a scrape.
 - **The ground.** The auto-hop clears low obstacles. You hug the ground, and you skip over water above 30 m/s.
 
-## The cut (居合)
+## Hold, brake, cut (制動・構え・一閃)
+
+The combat loop is now about speed rather than timing: hold to brake, thread the barrage, get right in front of a figure, and let go.
 
 | Step | What happens |
 |---|---|
-| Stance (構え) | Hold the finger still (within 16 px) for 0.32 s; on a keyboard, hold Space. An ensō is drawn round the finger as you hold, and the stance begins when it closes. A finger that has been steering must come back to centre first. |
-| Approach | The board slows toward `KAMAE_V` (34 m/s) and is drawn, with inertia, toward a line that passes close beside the chosen figure (`PASS_OFF` 2.8 m, on the side you are already on). The pull eases in over about 0.55 s after the lock. The heading turns at a capped rate (0.55 → 2.2 from 120 m to 18 m), shown as lean. The lateral error pulls the velocity sideways through a smoothed spring rather than snapping the line. Steering for yourself takes the pull away (up to 85%), and the finger nudges at 45%. |
-| The held breath | From 70 m in to 22 m, time slows from 0.9 to 0.5 and the frame sinks: desaturated and darkened by up to about 60% at the edges. Speed effects fade out. |
-| Wind-up | The figure reads your approach. When you will reach it within one wind-up (`WINDUP` 0.95 s), it calls ヨォー, swings its mane (毛振り), and raises the naginata. A vermilion brush ring closes on it. |
-| The window | In the last `WINDOW` (0.26 s of game time, about 0.5 s real at half speed), the ring turns gold and the tsuzumi sounds ポン. Release within `REACH` (22 m) to cut. Inside the last `PERFECT` (0.11 s), the cut is 一閃. |
-| The cut | The cut comes in five beats.<br>1. **Close in** (0.075 s, world held): the rider covers the last metres to `CLOSE_OFF` (2.1 m) beside the figure. The blade comes out of a pivot at the chest and sweeps from behind toward the figure, leaving a white trail edged in vermilion. A sharp steel draw sounds.<br>2. **Hit-stop** (0.30 s, 0.42 for 一閃): the blade is through the body. Kabuki mie with tsuke clappers, a black ground with white figures, the 定式幕 closing in, the frame cut in two along a slash, and the 斬 or 一閃 stamp. A low side camera is framed on both.<br>3. **Pass**: the board flies on along the road (not into the buildings) at +24 m/s (+34 for 一閃), under a short slow-motion.<br>4. **Blast**: `BOOM_DELAY` (0.12 s) later the figure blows apart behind you. A flash, a fireball of orange and vermilion, a ground shockwave and a standing ring, firework sparks, debris, lingering smoke, the mask split in two, and petals or leaves. The side camera holds through it.<br>5. **Sound**: a crack, a sub-bass drop, a darkening roar, crackling debris and a long rumble. Everything goes through a compressor so it hits hard without clipping.<br>You get flow, one life back, and souls (魂). |
-| Too early | 弾かれ. The blade is turned aside: a clang, and you are thrown off the line with a stagger of 0.6 s. |
-| Too late | The naginata comes down (radius 10.5 m) and you lose a life. |
+| Hold (制動) | Hold the finger still for 0.32 s (an ensō closes round it), or hold Space. Once it is held the finger can move again and steers. The board skids: it is kicked about 50° sideways, the rider leans back onto his heels with his arms out, the board's glow turns vermilion, sparks stream off the tail and a brake hiss rises with the bite. With no lock, speed falls at 7 m/s² (eased in over 0.45 s) down to `BRAKE_FLOOR` (20 m/s). The frame only dims a little. |
+| Crab-walk (蟹歩き) | While holding, the board mostly keeps its heading (turn rate ×0.2 at 9 m/s, ×0.55 at 55 m/s) and the finger slides it sideways instead. The slide is quickest when slowest: `STRAFE_SLOW` 16 m/s of sideways speed at 9 m/s, `STRAFE_FAST` 6 m/s at 60 m/s, eased in at 5.5/s. So braking is how you thread a dense figure, and riding flat out is how you get through quickly but stiffly. |
+| Lock | Within `LOCK_R` (95 m) of a figure ahead (within about 55° of the heading), the lock comes on with a bell and drum, a white glint at the hilt and a lock mark that pops in and settles. The rider changes body: the board straightens, he drops low and turns his chest to the figure, the left hand grips the scabbard and the right goes to the hilt, the sword comes up, the glow goes white and a sumi ensō turns on the ground under the board. The sound muffles, the frame darkens from the edges as the figure nears, and time slows a little (to 0.78 at the closest). |
+| Hard brake | Locked, the speed is drawn down toward a pace set by the distance: 32 m/s at 95 m down to 12 m/s at about 15 m, at 2.4/s. The board is drawn in with weight toward a line 2.2 m beside the figure. Steering for yourself takes the pull away. |
+| Release | Let go within `REACH` (22 m) and the cut is automatic; the lock mark turns gold and spins faster once you are in reach. Within `PERFECT_R` (10 m) it is 一閃. Let go further out and the blade goes back into the scabbard, and the board simply speeds up again. |
+| Too close | Within `ATK_TRIG` (14 m) the figure winds up its naginata (0.7 s, the vermilion ring closes). If you are still holding inside `ATK_HIT` (7 m) when it lands, you are hit and the stance breaks. Riding past close without cutting gets the same. |
+| The cut | A 0.1 s step-in to the figure's side, the board keeping its heading. Then the hit-stop (0.2 s, 0.26 for 一閃) in the kabuki frame, with 斬 or 一閃. Then a blast 0.1 s later, and a burst back up to the speed you started braking at (×1.06, or ×1.15 for 一閃). |
+| Sound of the cut | The zubaba, plus a new body blow (`sfx.impact`): a 160 Hz thump into the drive, a crack, a square-wave punch and a second, deeper bang with a 38 Hz tail. Then the tsuke clappers and the explosion. |
 
-Measured in the harness, from 170 m at 50 m/s:
-- The stance settled at 26 m/s.
-- The wind-up began at 25 m.
-- Release at 0.18 s left, 4.8 m out, gave 斬.
-- Release at 0.69 s gave 弾かれ.
-- Holding on was a hit.
+The camera never cuts away. Through the step-in and the hit-stop it holds its heading and eases after the rider (follow rate 7/s instead of 80/s), then carries on with the ride. Particles fade as they near the lens, or when they would fill the frame, so the camera can fly through the blast and still see the road.
 
-Passing at 52 m/s, 14 m to the side, was safe.
+Measured in the harness (Ginza, starting at 60 m/s, holding from 140 m):
 
-## Ground attacks (地走り)
-
-The sky barrage is set aside (`SKY_THREAT = false` in `yokai.js`; the assault and chase code stays for later). Cranes and fox fires still pass overhead as scenery.
-
-| What | Behaviour |
+| Release at | Result |
 |---|---|
-| Who fires | Only the nearest two idle figures ahead of you, between 90 m and 270 m. Inside 90 m a figure stops throwing and readies its naginata, so the last stretch before the cut is clean. |
-| Cadence | One figure of rounds every 1.15–1.65 s each, after a short raise of the blade (0.25 s tell). |
-| Speed | Rounds run low (1.15 m above the road) at 34 m/s, aimed at where you will be (55% lead). With your own pace the closing speed is about 75–95 m/s, so a figure fired from 200 m takes about two and a half seconds to arrive. |
-| Shapes | 扇 (a fan of nine, 0.075 rad apart), 弧 (a wall across the road with one 6.8 m gap), 連 (a stream of five at 40 m/s), 双 (two lines that close like scissors on your path). Each figure cycles through them. |
-| Look | Vermilion or indigo beads (3.4 m) with a warm additive halo, so they read head-on against the road. |
-| Cover | Low rounds break on walls, so a building is cover. They ignore expressway roofs. |
-| Hits | A hit costs one hull and breaks the stance (`地走り`). On touch the held finger takes the stance again at once. Grazes within 4.8 m chime and add flow, as before. |
+| 12 m | 斬 |
+| 8 m | 一閃 |
+| 4 m | The naginata lands first: a hit, no cut |
 
-Dodging is in the stance itself: steering there is now 80% of normal (it was 45%), and the lock's assist gives way while you steer.
+In every case the lock came at 87–94 m and speed fell from about 80 to 12 m/s. After a cut the board was back to about 100 m/s.
 
-Figures are spawned every 90–220 m of travel (it was 120–300 m), up to eight at a time, so cuts chain.
+## The barrage (地上の異人)
+
+The sky barrage is paused (`SKY_THREAT = false`). Cranes and fox fires still pass overhead as scenery. The threat is the masked figures in the road. Only the nearest two figures ahead throw, from 430 m in to 28 m. Each figure has a way of throwing, shown by its robe:
+
+| Robe | Style | Figures |
+|---|---|---|
+| Crimson | 撒: straight lines | 扇: two waves of an eleven-way fan, the second set into the gaps. 乱: eighteen lines thrown every which way at 28–44 m/s. 並: four lanes of six with one lane left open. Every 1.15 s. |
+| Indigo | 弧: curves | 鎌: sickles from both sides swinging in across your line. 蛇: a serpent wall, the launch sweeping back and forth as the rounds bend. 波: four swaying streams. Every 1.45 s. |
+| Gold | 描: figures drawn in the sky | 輪 (a ring of 18), 星 (a pentagram of 25) or 花 (a rose of 30). The rounds rise 17 m into a figure 12 m across, hold it for 1.35 s (a nohkan sounds), then the whole figure dives at you at 42 m/s, aimed a little to one side so its rim crosses you. Every 2.3 s. |
+| Violet | 紋: crests on the ground | 環: two rings opening as they come. 華: a flower of 3–5 petals. 巴: three turning arms. 格: a lattice of four rows with two gaps each. Every 1.8 s. |
+
+Rules for the rounds:
+- Rounds are beads (3 m) with an additive halo in the style's colour. They aim at where you will be, with a 95% lead.
+- The rider's hit is a thin upright core: 0.75 m across, from 0.9 m below the board to 1.9 m above it. That is much narrower than he looks.
+- The hit check is swept over the frame, so a 130 m/s closing cannot tunnel through.
+- A graze is within 3.4 m. It chimes and adds flow.
+- Low rounds break on walls, and rounds 70 m behind you are dropped.
+- A hit costs one hull but does not break the hold.
+
+Figures are spawned 380–480 m ahead, every 150–270 m of travel, up to six at a time.
+
+Measured, from 420 m at 60 m/s:
+
+| Rider | Hits | Time in the zone |
+|---|---|---|
+| Holding, not steering | about 4 | 16 s |
+| Holding, steered by a look-ahead bot | 1–2 | 16 s |
+| Flat out, not steering | 0–1 | 7 s |
+
+Running flat out is safer for a short stretch, but it cannot cut. Braking is how you thread a figure and make the kill.
 
 ## The other world in the sky (paused)
 
@@ -192,24 +210,9 @@ More for the feel:
   - The tsuke clappers follow.
 - **The lock-on mark** is asagi: a brush-drawn double ring with four ticks, like a sight. The wind-up ring is asagi too, and turns gold only inside the window. The ground figures' markings never share a colour with the vermilion and indigo rounds.
 
-## The tempo of a cut
+## The tempo of a cut (superseded)
 
-The cut is meant to flow in one breath:
-1. **Lock on from far:** up to 380 m ahead, within about 55° of your line.
-2. **Surge:** on the lock, a temple bell's rin and a small drum's ka sound, and the board surges forward for 0.25 s (about +11 m/s).
-3. **Glide:** the board gives up speed a little at a time as the figure comes closer. The target speed slides from 92% of your entry speed at 320 m to 62% at 45 m (never below 30 m/s), approached at 0.7/s, never braking hard. That leaves time to read the rounds and to time the release. Time slows only from 0.95 to 0.6 as you close. The frame drains of colour and darkens from the edges inward, while the centre stays clear.
-4. **Cut**, as before.
-5. **Back to speed:** over 0.7 s the board returns to the speed you came in with (×1.04, or ×1.12 for 一閃), smoothly.
-
-Measured from 330 m at 55 m/s:
-- the lock came at 328 m;
-- the glide settled near 48 m/s;
-- the cut landed at 2.4 m;
-- the board was back above 60 m/s within about a second.
-
-Measured with the ground attacks on, from 330 m at 55 m/s (holding, not steering): speed went 60 → 51 m/s by 175 m, 42 m/s by 97 m and 37 m/s at the wind-up, then the cut landed and the board was back above 60 m/s in about a second.
-
-The camera never cuts. Through the stance, the hit-stop and the blast it stays on the ride path; the change is carried by colour (focus, the mono frame, the flash) and sound.
+The earlier lock-surge-glide model (lock at 380 m, surge, glide at 85–92% of entry speed) is replaced by hold, brake, cut, above.
 
 ## Skies by place
 

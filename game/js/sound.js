@@ -3,7 +3,7 @@
 // an assault arrives, the kakegoe call (ヨォー) when a figure winds up, the tsuzumi (ポン) that marks the instant to cut,
 // hyoshigi clappers at the start, and a taiko under the cut itself.
 const sfx = (() => {
-  let ac = null, drive = null, master, hum, humG, humF, wind, windG, windF, lp, droneG, droneO;
+  let ac = null, drive = null, master, hum, humG, humF, wind, windG, windF, lp, droneG, droneO, brk, brkG, brkF;
   let on = store.get('ukiyo.sound', true);
   function init() {
     if (ac) return;
@@ -20,6 +20,9 @@ const sfx = (() => {
     // the held breath of the stance: a low breathy shakuhachi-like tone
     droneO = ac.createOscillator(); droneO.type = 'sine'; droneO.frequency.value = 146.8; droneG = ac.createGain(); droneG.gain.value = 0; droneO.connect(droneG); droneG.connect(master); droneO.start();
     sfx.noise = nb;
+    // the brake: a hiss of the board's edge on the air, rising in pitch as it bites (it skips the stance's muffle)
+    brk = ac.createBufferSource(); brk.buffer = nb; brk.loop = true; brkF = ac.createBiquadFilter(); brkF.type = 'bandpass'; brkF.frequency.value = 1400; brkF.Q.value = 1.6;
+    brkG = ac.createGain(); brkG.gain.value = 0; brk.connect(brkF); brkF.connect(brkG); brkG.connect(master); brk.start(0, 0.7);
     // a soft-clipping stage for the heavy cuts: it thickens the low end and makes a hit feel solid
     drive = ac.createWaveShaper(); const cv = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; cv[i] = Math.tanh(x * 3.2); } drive.curve = cv; drive.connect(lp);
   }
@@ -40,12 +43,13 @@ const sfx = (() => {
     resume() { init(); if (ac && ac.state === 'suspended') ac.resume(); },
     get on() { return on; },
     toggle() { on = !on; store.set('ukiyo.sound', on); if (master) master.gain.value = on ? 0.8 : 0; return on; },
-    update(speed, kamae, slow) {
+    update(speed, kamae, slow, brake = 0) {
       if (!ac) return; const t0 = now(), k = clamp(speed / 70, 0, 1);
       hum.frequency.setTargetAtTime(48 + k * 70, t0, 0.1); humF.frequency.setTargetAtTime(220 + k * 900, t0, 0.1); humG.gain.setTargetAtTime(0.03 + k * 0.05, t0, 0.15);
       windF.frequency.setTargetAtTime(300 + k * 1500, t0, 0.2); windG.gain.setTargetAtTime(k * k * 0.32, t0, 0.2);
       lp.frequency.setTargetAtTime(kamae || slow ? 1400 : 18000, t0, kamae ? 0.25 : 0.08);
-      droneG.gain.setTargetAtTime(kamae ? 0.09 : 0, t0, 0.2); droneO.frequency.setTargetAtTime(146.8 * (1 + Math.sin(t0 * 5) * 0.004), t0, 0.05);
+      droneG.gain.setTargetAtTime(kamae ? 0.09 : 0, t0, 0.2);
+      brkG.gain.setTargetAtTime(brake * clamp(speed / 30, 0.2, 1) * 0.16, t0, 0.06); brkF.frequency.setTargetAtTime(900 + brake * 2400, t0, 0.08); droneO.frequency.setTargetAtTime(146.8 * (1 + Math.sin(t0 * 5) * 0.004), t0, 0.05);
     },
     whoosh() { noise(0.22, 0.01, 0.22, 'bandpass', 700, 1.4, 0, 3200); },
     hop() { noise(0.12, 0.005, 0.12, 'bandpass', 900, 2); },
@@ -100,6 +104,17 @@ const sfx = (() => {
       }
       for (const f of [2093, 3136]) tone(f, 'sine', 0.08, 0.002, 1.1, master, 1, 0.08 + n * 0.075);
       tone(46, 'triangle', 0.95, 0.006, 1.4, master, 0.5, 0.08 + (n - 1) * 0.075);
+    },
+    // the blow itself: a body hit you feel in the chest (ドゴッ), a crack on top, and a second, deeper bang
+    impact(perfect) {
+      if (!ac) return; const K = perfect ? 1.25 : 1;
+      tone(160, 'sine', 1.5 * K, 0.002, 0.32, drive, 0.22);
+      noise(1.3 * K, 0.001, 0.07, 'bandpass', 1100, 0.9, 0, 300, drive);
+      noise(0.9 * K, 0.001, 0.03, 'highpass', 4200, 0.7, 0, 0, drive);
+      tone(70, 'square', 0.5 * K, 0.002, 0.22, drive, 0.4, 0.05);
+      tone(110, 'sine', 1.3 * K, 0.002, 0.5, drive, 0.3, 0.13);
+      noise(1.1 * K, 0.002, 0.42, 'lowpass', 900, 0.8, 0.13, 90, drive);
+      tone(38, 'sine', 1.2 * K, 0.004, 1.2, master, 0.6, 0.14);
     },
     draw() {
       noise(0.5, 0.004, 0.12, 'bandpass', 2500, 2, 0, 9000);

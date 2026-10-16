@@ -9,7 +9,7 @@ const P = {
   yawRate: 0, lean: 0, leanV: 0, assistLean: 0, sway: 0, hold: 0, holdSign: 0, onRoad: false, onWater: false, surf: 'ground',
   shelter: false, invuln: 0, stagger: 0, dead: false, dist: 0, souls: store.get('ukiyo.souls', 0), grazes: 0, kamae: false,
 };
-const HOVER = BOARD.hover;
+const HOVER = BOARD.hover, STRAFE_SLOW = 16, STRAFE_FAST = 6;
 const fwd = new V3(0, 0, 1), fPl = new V3(), side = new V3(), tmp = new V3(), tmp2 = new V3(), UP = new V3(0, 1, 0);
 const inp = { jx: 0, jy: 0, kx: 0, ky: 0, kamaeHeld: false, keys: {} };
 let shake = 0, dashPunch = 0, landSquash = 0, simT = 0, steerSm = 0;
@@ -61,7 +61,7 @@ function getStartPoint(startId) {
 
 function stepPhysics(dt) {
   let sx = clamp(inp.jx + inp.kx, -1, 1), sy = clamp(inp.jy + inp.ky, -1, 1);
-  if (P.kamae) { sx *= 0.8; sy = 0; }         // in the stance you can still lean out of a line of rounds
+  if (P.kamae) { sy = 0; }                    // holding: the finger steers the crab-walk (see the sway below)
   if (P.stagger > 0 || P.dead) { sx = 0; sy = 0; }
   P.stagger = Math.max(0, P.stagger - dt); P.invuln = Math.max(0, P.invuln - dt);
   const steer = Math.sign(sx) * Math.pow(Math.abs(sx), 1.2);
@@ -85,11 +85,18 @@ function stepPhysics(dt) {
   // in town the arc comes in sooner than on the open road: corners are 80 m apart
   const holdK = P.drifting ? 1 : lerp(0.36, 1, smooth(0.35, 1.9, P.hold));
   P.yawRate = clamp(-(P.grounded ? 34 : 27) * holdK * Math.tan(P.lean) / vTurn * (P.drifting ? 1.6 : 1), -2.4, 2.4);
+  // braking, the board mostly keeps its heading and slides sideways instead: less turn the slower it goes
+  if (P.kamae) P.yawRate *= lerp(0.2, 0.55, smooth(KAMAE_MIN, 55, Math.hypot(P.vel.x, P.vel.z)));
   P.yaw += P.yawRate * dt;
   roadAffinity(steer, dt);
   if (P.kamae) kamaeSteer(dt);
-  { const hsx = Math.hypot(P.vel.x, P.vel.z), swayT = P.grounded && !P.drifting && !P.dead ? steer * 8.5 * clamp((hsx - 8) / 30, 0, 1) : 0;
-    P.sway += (swayT - P.sway) * (1 - Math.exp(-(Math.abs(swayT) > Math.abs(P.sway) ? 3.2 : 2.0) * dt)); }
+  { const hsx = Math.hypot(P.vel.x, P.vel.z);
+    // the float: a sideways slide under the turn. Riding it grows with speed; braking it is the other way round,
+    // a crab-walk on the hover that is quickest when the board is slowest
+    let swayT = P.grounded && !P.drifting && !P.dead ? steer * 8.5 * clamp((hsx - 8) / 30, 0, 1) : 0;
+    if (P.kamae && !P.dead && P.stagger <= 0) swayT = sx * lerp(STRAFE_SLOW, STRAFE_FAST, smooth(KAMAE_MIN, 60, hsx));
+    const rate = P.kamae ? (Math.abs(swayT) > Math.abs(P.sway) ? 5.5 : 4) : (Math.abs(swayT) > Math.abs(P.sway) ? 3.2 : 2.0);
+    P.sway += (swayT - P.sway) * (1 - Math.exp(-rate * dt)); }
   fwd.set(Math.sin(P.yaw), 0, Math.cos(P.yaw));
 
   if (P.grounded) {
@@ -108,8 +115,15 @@ function stepPhysics(dt) {
     const cruiseNow = S.cruise * (1 + P.flow * 0.5), maxNow = S.maxSpeed * (1 + P.flow * 0.3);
     let target = S.auto && !braking && !P.dead ? cruiseNow : 0, acc = V.accel * (vf < 12 ? 0.55 : 1);
     if (P.tuck && target > 0) { target = cruiseNow * 1.35; acc *= 1.6; }
-    // in the stance the board glides: it eases toward most of the speed it came in with, never a hard brake
-    if (P.kamae) { const kv = IAI.kamaeV || KAMAE_V; target = kv; if (vf > kv && !(IAI.surgeT > 0)) vf -= (vf - kv) * 0.7 * dt; }
+    // holding brakes. With nothing locked it is a steady skid; locked, the speed is drawn down toward a pace set by
+    // the distance, so the board comes in hard and slow, right in front of the figure
+    P.brakeK = 0;
+    if (P.kamae) {
+      target = 0; const v0 = vf, ramp = smooth(0, 0.45, IAI.t || 0), e = IAI.target;
+      if (e) { const d = Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z), vT = lerp(KAMAE_MIN + 3, BRAKE_FLOOR + 12, smooth(REACH * 0.7, LOCK_R, d)); if (vf > vT) vf -= (vf - vT) * 2.4 * ramp * dt; }
+      else if (vf > BRAKE_FLOOR) vf = Math.max(BRAKE_FLOOR, vf - BRAKE_FAR * ramp * dt);
+      P.brakeK = clamp((v0 - vf) / dt / 26, 0, 1);
+    }
     if (vf < target) vf += acc * dt * (1 - clamp(vf / Math.max(target, 1), 0, 1) * 0.5);
     if (braking) vf = Math.max(0, vf - 26 * brakeAmt * dt);
     P.onRoad = P.surf === 'exp' || P.surf === 'ramp' || P.surf === 'bridge' || roadOnNow;
